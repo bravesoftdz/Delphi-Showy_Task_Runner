@@ -25,9 +25,10 @@ type
     Добавили обработку события скрола (в принцыпе уже незачем, но... много переписывать=) ) }
   TScrTreeView = class(TTreeView)
   private
-    procedure WMHScroll(var Message: TWMHScroll);
-    message WM_HSCROLL;
-    // procedure WMVScroll(var Message: TWMVScroll); message WM_VSCROLL;
+    // procedure WMHScroll(var Message: TWMHScroll);
+    // message WM_HSCROLL;
+    // procedure WMVScroll(var Message: TWMVScroll);
+    // message WM_VSCROLL;
   end;
 
   TfmMain = class(TForm)
@@ -91,24 +92,25 @@ type
     procedure miDeleteEventClick(Sender: TObject);
     procedure miNewEventClick(Sender: TObject);
     procedure miEditEventClick(Sender: TObject);
-    procedure btnChangeClick(Sender: TObject);
     procedure tiTrayClick(Sender: TObject);
     procedure miAutorunClick(Sender: TObject);
     procedure lbNextDrawItem(Control: TWinControl; Index: Integer; Rect: TRect;
       State: TOwnerDrawState);
     procedure miEditGroupClick(Sender: TObject);
-    procedure miInfoClick(Sender: TObject);
     procedure miLangListItemClick(Sender: TObject);
     procedure tvListGetImageIndex(Sender: TObject; Node: TTreeNode);
     procedure tvListGetSelectedIndex(Sender: TObject; Node: TTreeNode);
     procedure tvListExpanded(Sender: TObject; Node: TTreeNode);
     procedure tvListOnExit(Sender: TObject);
     procedure actExitExecute(Sender: TObject);
-    procedure miHelpClick(Sender: TObject);
     procedure actInfoExecute(Sender: TObject);
     procedure miRunInTrayClick(Sender: TObject);
     procedure ppAutoPopup(Sender: TObject);
     procedure lbNextClick(Sender: TObject);
+    procedure tvListExpanding(Sender: TObject; Node: TTreeNode;
+      var AllowExpansion: Boolean);
+    procedure tvListCollapsing(Sender: TObject; Node: TTreeNode;
+      var AllowCollapse: Boolean);
   private
     TaskPanelVisible: Boolean; // Видимость информации о задании
     inTray: Boolean; // Программа находиться в трее?
@@ -120,12 +122,13 @@ type
     CurrentLanguage: string; // Текущий язык
     function GetGroupIndex(const gId: Integer; var Tree: TTreeView): Integer;
     procedure ShowGroups(var Tree: TTreeView; var Groups: TGroupList);
+    procedure ExpandGroups(var Tree: TTreeView);
     procedure ShowEvents(var Tree: TTreeView; var Events: TEventList);
     procedure ShowEvent(const Event: TEvent);
     procedure ShowNextEvents(var Events: TEventList);
     procedure ShowTaskPanel;
     procedure SaveFormPos(const FileName: TFileName = 'app_pos.data');
-    procedure LoadFormPos(const FileName: TFileName = 'app_pos.data');
+    procedure LoadFormState(const FileName: TFileName = 'app_pos.data');
     procedure SetAutoRun(const Auto: Boolean);
     procedure DeselectItems;
     procedure DrawButton(ARect: TRect; Node: TTreeNode);
@@ -158,23 +161,25 @@ implementation
 
 {$R *.dfm}
 
+{ TfmMain.actExitExecute
+
+  Закрытие формы }
 procedure TfmMain.actExitExecute(Sender: TObject);
 begin
   fmMain.Close;
 end;
 
+{ TfmMain.actInfoExecute
+
+  Немножко инфо о создателе }
 procedure TfmMain.actInfoExecute(Sender: TObject);
 begin
   ShowMessage('by scribe, 2015, Kyiv' + #13#10 + 'e-mail: _scribe_@ukr.net');
 end;
 
-// Изменение задачи
-procedure TfmMain.btnChangeClick(Sender: TObject);
-begin
-  miEditEvent.Click;
-end;
+{ TfmMain.actInfoExecute
 
-// Делаем задачу выполненой
+  Делаем задачу выполненной (навсегда) }
 procedure TfmMain.btnDoneClick(Sender: TObject);
 begin
   if EventSelected then
@@ -201,7 +206,7 @@ begin
   tvList.BorderStyle := bsNone;
   tvList.Color := clWhite;
   tvList.Ctl3D := false;
-  // tvList.DoubleBuffered:= true;
+  // tvList.DoubleBuffered := true;
   tvList.Images := imlMain;
   tvList.PopupMenu := ppList;
   tvList.ReadOnly := true;
@@ -213,6 +218,8 @@ begin
   tvList.OnExpanded := tvListExpanded;
   tvList.OnGetImageIndex := tvListGetImageIndex;
   tvList.OnGetSelectedIndex := tvListGetSelectedIndex;
+  tvList.OnExpanding := tvListExpanding;
+  tvList.OnCollapsing := tvListCollapsing;
   // tvList.OnExit := tvListOnExit;
   tvList.Show;
 end;
@@ -324,6 +331,22 @@ begin
     ImageIndex, true);
 end;
 
+{ TfmMain.ExpandGroups
+
+  Раскрытие/сворачивание групп }
+procedure TfmMain.ExpandGroups(var Tree: TTreeView);
+var
+  i: Integer;
+begin
+  if not GroupList.Loaded then
+    Exit;
+  for i := 0 to Tree.Items.Count - 1 do
+  begin
+    if TObject(Tree.Items[i].Data) is TGroupItem then
+      Tree.Items[i].Expanded:= TGroupItem(Tree.Items[i].Data).Expanded;
+  end;
+end;
+
 { TfmMain.FormClose
 
   Закрытие формы }
@@ -345,7 +368,7 @@ end;
 procedure TfmMain.FormCreate(Sender: TObject);
 begin
   CreateTVList; // Создаем наш кастомный TTreeView
-  LoadFormPos(); // Загружаем настройки формы
+  LoadFormState(); // Загружаем настройки формы
 
   LangList := TStringList.Create; // Создаем объект для списка языков
   lsMain.FileName := ExtractFilePath(ParamStr(0))
@@ -389,6 +412,9 @@ begin
   end;
 end;
 
+{ TfmMain.GetNextItemDate
+
+  Извлекаем дату из строки в следующих задачах }
 function TfmMain.GetNextItemDate(const aValue: string): TDateTime;
 var
   s: string;
@@ -397,6 +423,9 @@ begin
   Result := StrToDateTime(s);
 end;
 
+{ TfmMain.GetTextDateDiff
+
+  Преобразоываем разницу во времени до тесктовго представления }
 function TfmMain.GetTextDateDiff(const aValue: real): string;
 var
   days, hours, minutes, seconds: Integer;
@@ -414,6 +443,9 @@ begin
     (seconds);
 end;
 
+{ TfmMain.lbNextClick
+
+  Отображение преобразованной разницы во времени через хинт }
 procedure TfmMain.lbNextClick(Sender: TObject);
 begin
   if (lbNext.Count > 0) and (lbNext.ItemIndex >= 0) and
@@ -480,8 +512,10 @@ begin
   end;
 end;
 
-// Загрузка настроек формы
-procedure TfmMain.LoadFormPos(const FileName: TFileName);
+{ TfmMain.LoadFormState
+
+  Загрузка настроек формы }
+procedure TfmMain.LoadFormState(const FileName: TFileName);
 var
   F: TIniFile;
 begin
@@ -503,14 +537,18 @@ begin
   end;
 end;
 
-// Установка программы в автозапуск
+{ TfmMain.miAutorunClick
+
+  Установка программы в автозапуск }
 procedure TfmMain.miAutorunClick(Sender: TObject);
 begin
   miAutorun.Checked := not miAutorun.Checked;
   SetAutoRun(miAutorun.Checked);
 end;
 
-// Удаление задачи
+{ TfmMain.miDeleteEventClick
+
+  Удаление задачи }
 procedure TfmMain.miDeleteEventClick(Sender: TObject);
 begin
   try
@@ -522,7 +560,9 @@ begin
   end;
 end;
 
-// Удалнеие группы
+{ TfmMain.miDeleteGroupClick
+
+  Удалнеие группы }
 procedure TfmMain.miDeleteGroupClick(Sender: TObject);
 begin
   try
@@ -533,7 +573,9 @@ begin
   end;
 end;
 
-// Редактирование задачи
+{ TfmMain.miEditEventClick
+
+  Редактирование задачи }
 procedure TfmMain.miEditEventClick(Sender: TObject);
 begin
   try
@@ -550,7 +592,9 @@ begin
   end;
 end;
 
-// Редактирование группы
+{ TfmMain.miEditGroupClick
+
+  Редактирование группы }
 procedure TfmMain.miEditGroupClick(Sender: TObject);
 begin
   if GroupSelected then
@@ -561,18 +605,9 @@ begin
     end;
 end;
 
-procedure TfmMain.miHelpClick(Sender: TObject);
-begin
+{ TfmMain.miLangListItemClick
 
-end;
-
-// Информка
-procedure TfmMain.miInfoClick(Sender: TObject);
-begin
-  ShowMessage('by scribe, 2015, Kyiv' + #13#10 + 'e-mail: _scribe_@ukr.net');
-end;
-
-// Клик по меню с языками
+  Клик по меню с языками }
 procedure TfmMain.miLangListItemClick(Sender: TObject);
 begin
   if Sender is TMenuItem then
@@ -585,7 +620,9 @@ begin
   end;
 end;
 
-// Новая задача
+{ TfmMain.miNewEventClick
+
+  Новая задача }
 procedure TfmMain.miNewEventClick(Sender: TObject);
 begin
   try
@@ -604,7 +641,9 @@ begin
   end;
 end;
 
-// Новая группа
+{ TfmMain.miNewGroupClick
+
+  Новая группа }
 procedure TfmMain.miNewGroupClick(Sender: TObject);
 begin
   try
@@ -619,6 +658,9 @@ begin
   end;
 end;
 
+{ TfmMain.miRunInTrayClick
+
+  Запуск программы свернутой }
 procedure TfmMain.miRunInTrayClick(Sender: TObject);
 begin
   miRunInTray.Checked := not miRunInTray.Checked;
@@ -642,6 +684,9 @@ begin
     Result := ' ' + Result + ' ';
 end;
 
+{ TfmMain.Num2Hour
+
+  Преобразовать количество дней в тесктовое представление }
 function TfmMain.Num2Hour(const aNum: Integer; const aSpaces: Boolean): string;
 var
   numTxt: string;
@@ -659,6 +704,9 @@ begin
     Result := ' ' + Result + ' ';
 end;
 
+{ TfmMain.Num2Minute
+
+  Преобразовать количество минут в тесктовое представление }
 function TfmMain.Num2Minute(const aNum: Integer; const aSpaces: Boolean)
   : string;
 var
@@ -677,6 +725,9 @@ begin
     Result := ' ' + Result + ' ';
 end;
 
+{ TfmMain.Num2Second
+
+  Преобразовать количество секунд в тесктовое представление }
 function TfmMain.Num2Second(const aNum: Integer; const aSpaces: Boolean)
   : string;
 var
@@ -695,6 +746,9 @@ begin
     Result := ' ' + Result + ' ';
 end;
 
+{ TfmMain.ppAutoPopup
+
+  Отображение меню развертывания окна в зависимости от его статуса }
 procedure TfmMain.ppAutoPopup(Sender: TObject);
 begin
   miRestore.Visible := inTray;
@@ -754,13 +808,18 @@ begin
   end;
 end;
 
-// Процедура для установки программы в автозапуск
+{ TfmMain.SetAutoRun
+
+  Процедура для установки программы в автозапуск }
 procedure TfmMain.SetAutoRun(const Auto: Boolean);
 begin
   Autorun(Auto, '', Application.ExeName);
 end;
 
-// Процедура установки высоты нода (правда указывать можно только разы, т.е. в 2 раза 3,4... больше обычного)
+{ TfmMain.SetNodeHeight
+
+  Процедура установки высоты нода (правда указывать можно только разы,
+  т.е. в 2 раза 3,4... больше обычного) }
 procedure TfmMain.SetNodeHeight(Node: TTreeNode; Integral: Integer);
 var
   ItemEx: TTVItemEx;
@@ -774,7 +833,9 @@ begin
   end;
 end;
 
-// Отображение задачи
+{ TfmMain.ShowEvent
+
+  Отображение задачи }
 procedure TfmMain.ShowEvent(const Event: TEvent);
 begin
   if not TaskPanelVisible then // показ контролов, если скрытые
@@ -817,7 +878,9 @@ begin
   qmTask.Text := Event.eMsg;
 end;
 
-// Показ задач
+{ TfmMain.ShowEvents
+
+  Показ задач }
 procedure TfmMain.ShowEvents(var Tree: TTreeView; var Events: TEventList);
 var
   i, n: Integer;
@@ -849,7 +912,9 @@ begin
   Tree.Items.EndUpdate;
 end;
 
-// Показ групп
+{ TfmMain.ShowGroups
+
+  Показ групп }
 procedure TfmMain.ShowGroups(var Tree: TTreeView; var Groups: TGroupList);
 var
   i, n, ggI, max: Integer;
@@ -903,15 +968,17 @@ begin
     begin // такое думаю может случится только при ручной правке, но мы справимся =)
       Tree.Items.AddObject(nil, Groups.Items[Groups.GetGroupIndex(inList[n].X)]
           .Name, Groups.Items[Groups.GetGroupIndex(inList[n].X)]);
-      Groups.Items[Groups.GetGroupIndex(inList[n].X)].ParentId := 0;
-      // убираем родителя, его все равно нет
+      // Groups.Items[Groups.GetGroupIndex(inList[n].X)].ParentId := 0;
+      // убираем родителя, его все равно нет -отменено
       inList[n] := inList[ High(inList)];
       SetLength(inList, High(inList));
     end;
   Tree.Items.EndUpdate;
 end;
 
-// Отображение списка со следующими задачами (используется кастомная сортировка)
+{ TfmMain.ShowNextEvents
+
+  Отображение списка со следующими задачами (используется кастомная сортировка) }
 procedure TfmMain.ShowNextEvents(var Events: TEventList);
 var
   i: Integer;
@@ -925,7 +992,9 @@ begin
   end;
 end;
 
-// Показ панели с информацией про задачу
+{ TfmMain.ShowTaskPanel
+
+  Показ панели с информацией про задачу }
 procedure TfmMain.ShowTaskPanel;
 var
   i: Integer;
@@ -939,7 +1008,9 @@ begin
   ostTask.Align := alBottom;
 end;
 
-// Клик по трею (скрываем/раскрываем приложение если просто свернуть)
+{ TfmMain.tiTrayClick
+
+  Клик по трею (скрываем/раскрываем приложение если просто свернуть) }
 procedure TfmMain.tiTrayClick(Sender: TObject);
 begin
   inTray := not inTray;
@@ -959,7 +1030,9 @@ begin
   end;
 end;
 
-// При клике выбираеться задачи или элемент группы
+{ TfmMain.tvListClick
+
+  При клике выбираеться задачи или элемент группы }
 procedure TfmMain.tvListClick(Sender: TObject);
 begin
   if (tvList.Selected <> nil) and (TObject(tvList.Selected.Data) is TEvent) then
@@ -975,9 +1048,21 @@ begin
     GroupSelected := true;
     EventSelected := false;
     SelectedGroup := TGroupItem(tvList.Selected.Data);
+    // ShowMessage(BoolToStr(SelectedGroup.Expanded));
+    // ShowMessage(BoolToStr(tvList.Selected.Expanded));
     if TaskPanelVisible then
       ShowTaskPanel;
   end;
+end;
+
+{ TfmMain.tvListCollapsing
+
+  При свертывании группы, запоминаем состояние }
+procedure TfmMain.tvListCollapsing(Sender: TObject; Node: TTreeNode;
+  var AllowCollapse: Boolean);
+begin
+  if (Node.Data <> nil) and (TObject(Node.Data) is TGroupItem) then
+    TGroupItem(Node.Data).Expanded := false;
 end;
 
 { TfmMain.tvListCustomDrawItem
@@ -1080,6 +1165,16 @@ begin
   tvList.Repaint;
 end;
 
+{ TfmMain.tvListExpanding
+
+  При раскрытии группы, запоминаем состояние }
+procedure TfmMain.tvListExpanding(Sender: TObject; Node: TTreeNode;
+  var AllowExpansion: Boolean);
+begin
+  if (Node.Data <> nil) and (TObject(Node.Data) is TGroupItem) then
+    TGroupItem(Node.Data).Expanded := true;
+end;
+
 { TfmMain.tvListGetImageIndex
 
   В зависимости от типа сменяем картинку тоже }
@@ -1172,19 +1267,19 @@ begin
   ShowGroups(TTreeView(tvList), GroupList);
   ShowEvents(TTreeView(tvList), EventList);
   ShowNextEvents(EventList);
-  tvList.FullExpand;
+  ExpandGroups(TTreeView(tvList));
+  // tvList.FullExpand;
 end;
 
 { TstrList }
 
 { TstrList.WMHScroll
 
-  При скроле обновимся
-  Не используется... }
-procedure TScrTreeView.WMHScroll(var Message: TWMHScroll);
-begin
-  { inherited;
-    Resize; }
-end;
+  При скроле обновимся, не используется... }
+{ procedure TScrTreeView.WMHScroll(var Message: TWMHScroll);
+  begin
+  inherited;
+  Resize;
+  end; }
 
 end.

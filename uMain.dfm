@@ -24,7 +24,7 @@ object fmMain: TfmMain
     Top = 0
     Width = 529
     Height = 713
-    ActivePage = tsNext
+    ActivePage = tsMain
     Align = alClient
     DoubleBuffered = False
     MultiLine = True
@@ -197,7 +197,7 @@ object fmMain: TfmMain
               ParentDoubleBuffered = False
               Style = bsNew
               TabOrder = 1
-              OnClick = btnChangeClick
+              OnClick = miEditEventClick
             end
           end
           object qmTask: TMemo
@@ -261,7 +261,6 @@ object fmMain: TfmMain
     end
     object miHelp: TMenuItem
       Caption = '?'
-      OnClick = miHelpClick
       object miInfo: TMenuItem
         Action = actInfo
       end
