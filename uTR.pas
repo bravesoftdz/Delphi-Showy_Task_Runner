@@ -1255,9 +1255,9 @@ begin
         if Trim(gLine) = '' then
           Exit;
         Explode(gArrLine, gSep, gLine);
-        Self.UnSerializeFont(gFont, gArrLine[3]);
+        Self.UnSerializeFont(gFont, gArrLine[4]);
         Self.Add(TGroupItem.Create(gArrLine[1], StrToInt(gArrLine[0]), StrToInt
-              (gArrLine[2]), gFont));
+              (gArrLine[2]), gFont, strtobool(gArrLine[3])));
         Inc(numLine);
       end;
     except
@@ -1308,8 +1308,9 @@ begin
       for i := 0 to Self.Count - 1 do
       begin
         gLine := inttostr(Self.Items[i].FId) + gSep + Self.Items[i]
-          .FName + gSep + inttostr(Self.Items[i].FParentId)
-          + gSep + Self.SerializeFont(Self.Items[i].FFont);
+          .FName + gSep + inttostr(Self.Items[i].FParentId) + gSep + booltostr
+          (Self.Items[i].FExpanded) + gSep + Self.SerializeFont
+          (Self.Items[i].FFont);
         Writeln(gFile, gLine);
         Inc(numLine);
       end;
