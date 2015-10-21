@@ -1,5 +1,5 @@
 {
-  Showy Task Runner v.0.1 alfa
+  Showy Task Runner v.0.2 alfa
   @author: scribe
   @date: 15.09.2015
   Delphi 2010
@@ -23,14 +23,22 @@ type
 
     Класс элемента группы }
   TGroupItem = class
+  private
+    FId: integer;
+    FName: string;
+    FParentId: integer;
+    FFont: TFont;
+    FExpanded: boolean;
   public
-    gId: integer;
-    gName: string;
-    gParentId: integer;
-    gFont: TFont;
-    constructor Create(const gName: string; const gId, gParentId: integer;
-      var gFont: TFont);
+    constructor Create(const aName: string; const aId, aParentId: integer;
+      var aFont: TFont; aExpanded: boolean = true);
     destructor Destroy; override;
+    procedure SetGroupFont(aFont: TFont);
+    function GetGroupFont: TFont;
+    property Id: integer read FId;
+    property Name: string read FName write FName;
+    property ParentId: integer read FParentId write FParentId;
+    property Expanded: boolean read FExpanded write FExpanded;
   end;
 
   PGroupItem = ^TGroupItem;
@@ -44,25 +52,25 @@ type
     gLoaded: boolean;
     gDefFont: TFont;
     function GetUnsedgId: integer;
-    function GetGroupItem(const gId: integer): TGroupItem;
-    function GroupExists(const gId: integer): boolean;
+    function GetGroupItem(const aId: integer): TGroupItem;
+    function GroupExists(const aId: integer): boolean;
     class function SerializeFont(var sFont: TFont; const sep: char = chr(2))
       : string;
     class procedure UnSerializeFont(var sFont: TFont; const strFont: string;
       const sep: char = chr(2));
     procedure Add(Value: TGroupItem);
     procedure Delete(Value: integer);
-    function HasChild(const gId: integer): boolean;
+    function HasChild(const aId: integer): boolean;
   public
     AutoSave: boolean;
     constructor Create(const gFileName: string = '');
     destructor Destroy; override;
-    function AddGroup(const gName: string; gParentId: integer = 0): boolean;
-    function GetGroupIndex(const gId: integer): integer;
+    function AddGroup(const gName: string; gParentId: integer = 0): integer;
+    function GetGroupIndex(const aId: integer): integer;
     function GetMaxGroupId: integer;
     procedure SaveGroups;
     procedure LoadGroups;
-    procedure DeleteGroup(const gId: integer);
+    procedure DeleteGroup(const aId: integer);
     property FileName: string read gFileName write gFileName;
     property Loaded: boolean read gLoaded;
     property MaxGroupId: integer read GetMaxGroupId;
@@ -1019,15 +1027,16 @@ end;
 { TGroupItem }
 
 // Инициализация элемента группы
-constructor TGroupItem.Create(const gName: string; const gId,
-  gParentId: integer; var gFont: TFont);
+constructor TGroupItem.Create(const aName: string; const aId,
+  aParentId: integer; var aFont: TFont; aExpanded: boolean);
 begin
   inherited Create;
-  Self.gId := gId;
-  Self.gName := gName;
-  Self.gParentId := gParentId;
-  Self.gFont := TFont.Create;
-  Self.gFont.Assign(gFont);
+  Self.FId := aId;
+  Self.FName := aName;
+  Self.FParentId := aParentId;
+  Self.FExpanded := aExpanded;
+  Self.FFont := TFont.Create;
+  Self.FFont.Assign(aFont);
 end;
 
 { TGroupList }
@@ -1044,22 +1053,23 @@ end;
 
 // Добавление новой группы в список
 function TGroupList.AddGroup(const gName: string; gParentId: integer = 0)
-  : boolean;
+  : integer;
 var
   gFilteredName: string;
+  gUnusedId: integer;
 begin
-  Result := false;
+  Result := 0;
   try
     gFilteredName := gName;
     gFilteredName := StringReplace(gFilteredName, chr(1), '',
       [rfReplaceAll, rfIgnoreCase]);
     gFilteredName := StringReplace(gFilteredName, chr(2), '',
       [rfReplaceAll, rfIgnoreCase]);
-    Self.Add(TGroupItem.Create(gFilteredName, GetUnsedgId, gParentId, gDefFont)
-      );
+    gUnusedId := GetUnsedgId;
+    Self.Add(TGroupItem.Create(gFilteredName, gUnusedId, gParentId, gDefFont));
     if AutoSave then
       SaveGroups;
-    Result := true;
+    Result := gUnusedId;
   except
     on E: Exception do
       MessageBox(Application.Handle, PChar(fmMain.lsMain.GetCaption(23, 1)
@@ -1093,21 +1103,21 @@ begin
 end;
 
 // Удаление группы по ее айди
-procedure TGroupList.DeleteGroup(const gId: integer);
+procedure TGroupList.DeleteGroup(const aId: integer);
 var
   i: integer;
 begin
   try
     i := 0;
-    if not GroupExists(gId) then
+    if not GroupExists(aId) then
       Exit;
     repeat
-      if Self.Items[i].gParentId = gId then
+      if Self.Items[i].ParentId = aId then
       begin
-        DeleteGroup(Self.Items[i].gId);
+        DeleteGroup(Self.Items[i].Id);
         i := -1;
       end
-      else if Self.Items[i].gId = gId then
+      else if Self.Items[i].Id = aId then
       begin
         Self.Delete(i);
         i := -1;
@@ -1130,25 +1140,25 @@ begin
 end;
 
 // Индекс группы в списке по ее айди
-function TGroupList.GetGroupIndex(const gId: integer): integer;
+function TGroupList.GetGroupIndex(const aId: integer): integer;
 var
   i: integer;
 begin
   Result := -1;
   for i := 0 to Self.Count - 1 do
-    if Self.Items[i].gId = gId then
+    if Self.Items[i].FId = aId then
       Result := i;
 end;
 
 // Возвращает элемент группы
-function TGroupList.GetGroupItem(const gId: integer): TGroupItem;
+function TGroupList.GetGroupItem(const aId: integer): TGroupItem;
 var
   i: integer;
 begin
   Result := nil;
   for i := 0 to Self.Count - 1 do
   begin
-    if gId = Self.Items[i].gId then
+    if aId = Self.Items[i].FId then
       Result := Self.Items[i];
   end;
 end;
@@ -1160,8 +1170,8 @@ var
 begin
   Result := 0;
   for i := 0 to Self.Count - 1 do
-    if Result < Self.Items[i].gId then
-      Result := Self.Items[i].gId;
+    if Result < Self.Items[i].FId then
+      Result := Self.Items[i].FId;
 end;
 
 // Нахождение уникального айди группы
@@ -1174,7 +1184,7 @@ begin
 restart :
   for i := 0 to Self.Count - 1 do
   begin
-    if Result = Self.Items[i].gId then
+    if Result = Self.Items[i].FId then
     begin
       Inc(Result);
       goto restart;
@@ -1183,25 +1193,25 @@ restart :
 end;
 
 // Проверка существования группы по айди
-function TGroupList.GroupExists(const gId: integer): boolean;
+function TGroupList.GroupExists(const aId: integer): boolean;
 var
   i: integer;
 begin
   Result := false;
   for i := 0 to Self.Count - 1 do
-    if Self.Items[i].gId = gId then
+    if Self.Items[i].FId = aId then
       Result := true;
 end;
 
 // Проверка существования дочерней группы
-function TGroupList.HasChild(const gId: integer): boolean;
+function TGroupList.HasChild(const aId: integer): boolean;
 var
   i: integer;
 begin
   Result := false;
   for i := 0 to Self.Count - 1 do
   begin
-    if Self.Items[i].gParentId = gId then
+    if Self.Items[i].FParentId = aId then
       Result := true;
   end;
 end;
@@ -1297,9 +1307,9 @@ begin
     try
       for i := 0 to Self.Count - 1 do
       begin
-        gLine := inttostr(Self.Items[i].gId) + gSep + Self.Items[i]
-          .gName + gSep + inttostr(Self.Items[i].gParentId)
-          + gSep + Self.SerializeFont(Self.Items[i].gFont);
+        gLine := inttostr(Self.Items[i].FId) + gSep + Self.Items[i]
+          .FName + gSep + inttostr(Self.Items[i].FParentId)
+          + gSep + Self.SerializeFont(Self.Items[i].FFont);
         Writeln(gFile, gLine);
         Inc(numLine);
       end;
@@ -1350,8 +1360,20 @@ end;
 // Освобождаем созданный шрифт тоже
 destructor TGroupItem.Destroy;
 begin
-  gFont.Free;
+  FFont.Free;
   inherited Destroy;
+end;
+
+function TGroupItem.GetGroupFont: TFont;
+begin
+  if FFont <> nil then
+    Result := FFont;
+end;
+
+procedure TGroupItem.SetGroupFont(aFont: TFont);
+begin
+  if aFont <> nil then
+    FFont.Assign(aFont);
 end;
 
 { TEventThread }

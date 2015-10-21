@@ -1,5 +1,5 @@
 {
-  Showy Task Runner v.0.1 alfa
+  Showy Task Runner v.0.2 alfa
   @author: scribe
   @date: 15.09.2015
   Delphi 2010

@@ -1,5 +1,5 @@
 {
-  Showy Task Runner v.0.1 alfa
+  Showy Task Runner v.0.2 alfa
   @author: scribe
   @date: 15.09.2015
   Delphi 2010
@@ -83,7 +83,8 @@ function ShowEventEditingDialog(var eEvent: TEvent; var eList: TEventList;
 
 implementation
 
-uses uMain;
+uses
+  uMain;
 {$R *.dfm}
 
 // Создание задачи
@@ -105,9 +106,9 @@ begin
       ClearMDays;
       for i := 0 to eGroups.Count - 1 do
       begin
-        cbxGroup.Items.Add(eGroups.Items[i].gName + ' |' + inttostr
-            (eGroups.Items[i].gId));
-        if eGroups.Items[i].gId = gId then
+        cbxGroup.Items.Add(eGroups.Items[i].Name + ' |' + inttostr
+            (eGroups.Items[i].Id));
+        if eGroups.Items[i].Id = gId then
           cbxGroup.ItemIndex := i;
       end;
       if ShowModal = mrOk then
@@ -143,9 +144,9 @@ begin
       cbxDone.ItemIndex := integer(eEvent.eDone);
       for i := 0 to eGroups.Count - 1 do
       begin
-        cbxGroup.Items.Add(eGroups.Items[i].gName + ' |' + inttostr
-            (eGroups.Items[i].gId));
-        if eGroups.Items[i].gId = eEvent.eGroup then
+        cbxGroup.Items.Add(eGroups.Items[i].Name + ' |' + inttostr
+            (eGroups.Items[i].Id));
+        if eGroups.Items[i].Id = eEvent.eGroup then
           cbxGroup.ItemIndex := i;
       end;
       cbxType.ItemIndex := integer(eEvent.eType);
