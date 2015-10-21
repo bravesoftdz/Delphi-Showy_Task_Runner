@@ -1,5 +1,5 @@
 {
-  Showy Task Runner v.0.1 alfa
+  Showy Task Runner v.0.2 alfa
   @author: scribe
   @date: 15.09.2015
   Delphi 2010
@@ -16,7 +16,7 @@ uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs, StdCtrls, DateUtils, Menus, ComCtrls, ExtCtrls, Buttons, CommCtrl,
   IniFiles, AppEvnts, ImgList, ActnList,
-  uTR, uTask, uEvent, uAutorun, uLangStorage;
+  uTR, uTask, uEvent, uGroup, uAutorun, uLangStorage;
 
 type
 
@@ -60,8 +60,6 @@ type
     miDeleteGroup: TMenuItem;
     stsBar: TStatusBar;
     miEditEvent: TMenuItem;
-    miChangeGFont: TMenuItem;
-    fdGroup: TFontDialog;
     tiTray: TTrayIcon;
     miInfo: TMenuItem;
     ppAuto: TPopupMenu;
@@ -93,7 +91,6 @@ type
     procedure miDeleteEventClick(Sender: TObject);
     procedure miNewEventClick(Sender: TObject);
     procedure miEditEventClick(Sender: TObject);
-    procedure miChangeGFontClick(Sender: TObject);
     procedure btnChangeClick(Sender: TObject);
     procedure tiTrayClick(Sender: TObject);
     procedure miAutorunClick(Sender: TObject);
@@ -387,7 +384,7 @@ begin
   begin
     if (Tree.Items[i].Data <> nil) and (TObject(Tree.Items[i].Data)
         is TGroupItem) then
-      if TGroupItem(Tree.Items[i].Data).gId = gId then
+      if TGroupItem(Tree.Items[i].Data).Id = gId then
         Result := i;
   end;
 end;
@@ -513,20 +510,6 @@ begin
   SetAutoRun(miAutorun.Checked);
 end;
 
-// Изменение шрифта у группы
-procedure TfmMain.miChangeGFontClick(Sender: TObject);
-begin
-  try
-    if GroupSelected and not EventSelected then
-      if fdGroup.Execute then
-        GroupList.Items[GroupList.GetGroupIndex(SelectedGroup.gId)].gFont.Assign
-          (fdGroup.Font);
-  finally
-    GroupList.SaveGroups;
-    DeselectItems;
-  end;
-end;
-
 // Удаление задачи
 procedure TfmMain.miDeleteEventClick(Sender: TObject);
 begin
@@ -544,7 +527,7 @@ procedure TfmMain.miDeleteGroupClick(Sender: TObject);
 begin
   try
     if GroupSelected then
-      GroupList.DeleteGroup(SelectedGroup.gId);
+      GroupList.DeleteGroup(SelectedGroup.Id);
   finally
     DeselectItems;
   end;
@@ -569,14 +552,10 @@ end;
 
 // Редактирование группы
 procedure TfmMain.miEditGroupClick(Sender: TObject);
-var
-  gName: string;
 begin
   if GroupSelected then
     try
-      gName := SelectedGroup.gName;
-      if InputQuery(lsMain.GetCaption(4), lsMain.GetCaption(9), gName) then
-        SelectedGroup.gName := gName;
+      ShowGroupEditingDialog(GroupList, SelectedGroup.Id);
     finally
       DeselectItems;
     end;
@@ -615,7 +594,7 @@ begin
         then
         ShowMessage(lsMain.GetCaption(15, 0));
     if GroupSelected and not EventSelected then
-      if ShowEventCreationDialog(SelectedGroup.gId, EventList, GroupList) then
+      if ShowEventCreationDialog(SelectedGroup.Id, EventList, GroupList) then
         ShowMessage(lsMain.GetCaption(15, 0));
     if not GroupSelected and not EventSelected then
       if ShowEventCreationDialog(0, EventList, GroupList) then
@@ -627,19 +606,14 @@ end;
 
 // Новая группа
 procedure TfmMain.miNewGroupClick(Sender: TObject);
-var
-  gName: string;
 begin
   try
     if GroupSelected and not EventSelected then
-      if InputQuery(lsMain.GetCaption(1), lsMain.GetCaption(5), gName) then
-        GroupList.AddGroup(gName, SelectedGroup.gId);
+      ShowGroupCreationDialog(GroupList, SelectedGroup.Id);
     if EventSelected and not GroupSelected then
-      if InputQuery(lsMain.GetCaption(1), lsMain.GetCaption(5), gName) then
-        GroupList.AddGroup(gName, SelectedEvent.eGroup);
+      ShowGroupCreationDialog(GroupList, SelectedEvent.eGroup);
     if not GroupSelected and not EventSelected then
-      if InputQuery(lsMain.GetCaption(1), lsMain.GetCaption(5), gName) then
-        GroupList.AddGroup(gName);
+      ShowGroupCreationDialog(GroupList);
   finally
     DeselectItems;
   end;
@@ -735,7 +709,6 @@ begin
   begin
     miNewGroup.Visible := true;
     miEditGroup.Visible := false;
-    miChangeGFont.Visible := false;
     miDeleteGroup.Visible := false;
     miNewEvent.Visible := true;
     miEditEvent.Visible := true;
@@ -745,7 +718,6 @@ begin
   begin
     miNewGroup.Visible := true;
     miEditGroup.Visible := true;
-    miChangeGFont.Visible := true;
     miDeleteGroup.Visible := true;
     miNewEvent.Visible := true;
     miEditEvent.Visible := false;
@@ -755,7 +727,6 @@ begin
   begin
     miNewGroup.Visible := true;
     miEditGroup.Visible := false;
-    miChangeGFont.Visible := false;
     miDeleteGroup.Visible := false;
     miNewEvent.Visible := true;
     miEditEvent.Visible := false;
@@ -862,7 +833,7 @@ begin
     begin // если это группа, то пробуем сюда прицепить задачу
       if (Tree.Items[n].Data <> nil) and
         (TObject(Tree.Items[n].Data) is TGroupItem) then
-        if TGroupItem(Tree.Items[n].Data).gId = Events[i].eGroup then
+        if TGroupItem(Tree.Items[n].Data).Id = Events[i].eGroup then
         begin
           Tree.Items.AddChildObject(Tree.Items[n], Events[i].eHeader,
             Events[i]);
@@ -891,9 +862,9 @@ begin
   i := 0;
   max := Groups.Count - 1;
   repeat
-    if Groups.Items[i].gParentId = 0 then // проверяем есть ли родительская группа
+    if Groups.Items[i].ParentId = 0 then // проверяем есть ли родительская группа
     begin
-      Tree.Items.AddObject(nil, Groups.Items[i].gName, Groups.Items[i]);
+      Tree.Items.AddObject(nil, Groups.Items[i].Name, Groups.Items[i]);
       // если нет, добавляем в корень
       if length(inList) > 0 then // проверяем сохраненный список, возможно появился родитель для них
         for n := 0 to High(inList) do
@@ -901,7 +872,7 @@ begin
           ggI := GetGroupIndex(inList[n].Y, Tree);
           if ggI <> -1 then // если родитель нашелся, пришло время добавить к нему группу
           begin
-            Tree.Items.AddChildObject(Tree.Items[ggI], Groups.Items[i].gName,
+            Tree.Items.AddChildObject(Tree.Items[ggI], Groups.Items[i].Name,
               Groups.Items[Groups.GetGroupIndex(inList[n].X)]);
             inList[n] := inList[ High(inList)];
             // удаляем из списка, ибо добавили уже
@@ -911,16 +882,16 @@ begin
     end
     else
     begin // если группа дочерняя, проверяем есть ли уже родитель
-      ggI := GetGroupIndex(Groups.Items[i].gParentId, Tree);
+      ggI := GetGroupIndex(Groups.Items[i].ParentId, Tree);
       if ggI = -1 then
       begin // родителя нет, надо занести группу в список, возможно родитель еще появится
         SetLength(inList, length(inList) + 1);
-        inList[ High(inList)].X := Groups.Items[i].gId;
-        inList[ High(inList)].Y := Groups.Items[i].gParentId;
+        inList[ High(inList)].X := Groups.Items[i].Id;
+        inList[ High(inList)].Y := Groups.Items[i].ParentId;
       end
       else
       begin // роитель нашелся, добавляем группу как дочернюю
-        Tree.Items.AddChildObject(Tree.Items[ggI], Groups.Items[i].gName,
+        Tree.Items.AddChildObject(Tree.Items[ggI], Groups.Items[i].Name,
           Groups.Items[i]);
       end;
     end;
@@ -931,8 +902,8 @@ begin
     for n := 0 to length(inList) - 1 do
     begin // такое думаю может случится только при ручной правке, но мы справимся =)
       Tree.Items.AddObject(nil, Groups.Items[Groups.GetGroupIndex(inList[n].X)]
-          .gName, Groups.Items[Groups.GetGroupIndex(inList[n].X)]);
-      Groups.Items[Groups.GetGroupIndex(inList[n].X)].gParentId := 0;
+          .Name, Groups.Items[Groups.GetGroupIndex(inList[n].X)]);
+      Groups.Items[Groups.GetGroupIndex(inList[n].X)].ParentId := 0;
       // убираем родителя, его все равно нет
       inList[n] := inList[ High(inList)];
       SetLength(inList, High(inList));
@@ -1004,7 +975,6 @@ begin
     GroupSelected := true;
     EventSelected := false;
     SelectedGroup := TGroupItem(tvList.Selected.Data);
-    fdGroup.Font := SelectedGroup.gFont;
     if TaskPanelVisible then
       ShowTaskPanel;
   end;
@@ -1041,8 +1011,8 @@ begin
       end
       else if (Node.Data <> nil) and (TObject(Node.Data) is TGroupItem) then
       begin
-        Font.Assign(TGroupItem(Node.Data).gFont);
-        aIntegral := TGroupItem(Node.Data).gFont.Size div tvList.Font.Size;
+        Font.Assign(TGroupItem(Node.Data).GetGroupFont);
+        aIntegral := Font.Size div tvList.Font.Size;
         SetNodeHeight(Node, aIntegral); // Установка высоты элемента
       end;
       if cdsSelected in State then
@@ -1050,8 +1020,8 @@ begin
         Brush.Color := $00FFD2A6;
         if (Node.Data <> nil) and (TObject(Node.Data) is TGroupItem) then
         begin
-          Font.Assign(TGroupItem(Node.Data).gFont);
-          aIntegral := TGroupItem(Node.Data).gFont.Size div tvList.Font.Size;
+          Font.Assign(TGroupItem(Node.Data).GetGroupFont);
+          aIntegral := Font.Size div tvList.Font.Size;
           SetNodeHeight(Node, aIntegral); // Установка высоты элемента
         end
         else
@@ -1091,8 +1061,8 @@ begin
         end
         else if (Node.Data <> nil) and (TObject(Node.Data) is TGroupItem) then
         begin
-          Font.Assign(TGroupItem(Node.Data).gFont);
-          aIntegral := TGroupItem(Node.Data).gFont.Size div tvList.Font.Size;
+          Font.Assign(TGroupItem(Node.Data).GetGroupFont);
+          aIntegral := Font.Size div tvList.Font.Size;
           SetNodeHeight(Node, aIntegral); // Установка высоты элемента
         end;
       end
@@ -1176,7 +1146,6 @@ begin
   miDeleteEvent.Caption := lsMain.GetCaption(63, 2);
   miNewGroup.Caption := lsMain.GetCaption(63, 3);
   miEditGroup.Caption := lsMain.GetCaption(63, 4);
-  miChangeGFont.Caption := lsMain.GetCaption(63, 5);
   miDeleteGroup.Caption := lsMain.GetCaption(63, 6);
   miAutorun.Caption := lsMain.GetCaption(64);
   miLanguage.Caption := lsMain.GetCaption(64, 1);
