@@ -120,6 +120,7 @@ type
     SelectedEvent: TEvent; // Выбраное задание
     SelectedGroup: TGroupItem; // Выбраная группа
     CurrentLanguage: string; // Текущий язык
+    FHotkey, FMainHotKey: Integer;
     function GetGroupIndex(const gId: Integer; var Tree: TTreeView): Integer;
     procedure ShowGroups(var Tree: TTreeView; var Groups: TGroupList);
     procedure ExpandGroups(var Tree: TTreeView);
@@ -145,6 +146,11 @@ type
       : string;
     function Num2Second(const aNum: Integer; const aSpaces: Boolean = true)
       : string;
+    procedure WMHotKey(var aMsg: TWMHotKey);
+    message WM_HOTKEY;
+    procedure ShortCutToHotKey(aHotKey: TShortCut; var aKey: Word;
+      var aModifiers: Uint);
+    procedure RegisterMainHotKey(const aKey: TShortCut);
   public
     GroupList: TGroupList; // Список групп
     EventList: TEventList; // Список заданий
@@ -343,7 +349,7 @@ begin
   for i := 0 to Tree.Items.Count - 1 do
   begin
     if TObject(Tree.Items[i].Data) is TGroupItem then
-      Tree.Items[i].Expanded:= TGroupItem(Tree.Items[i].Data).Expanded;
+      Tree.Items[i].Expanded := TGroupItem(Tree.Items[i].Data).Expanded;
   end;
 end;
 
@@ -788,6 +794,18 @@ begin
   end;
 end;
 
+procedure TfmMain.RegisterMainHotKey(const aKey: TShortCut);
+var
+  Key: Word;
+  Modifiers: Uint;
+begin
+  UnRegisterHotKey(Handle, FHotkey);
+  GlobalDeleteAtom(FHotkey);
+  ShortCutToHotKey(aKey, Key, Modifiers);
+  FHotkey := GlobalAddAtom('STR_v.0.2_Hotkey');
+  RegisterHotKey(Handle, FHotkey, Modifiers, Key);
+end;
+
 { TfmMain.SaveFormPos
 
   Сохранение настроек }
@@ -831,6 +849,24 @@ begin
     ItemEx.iIntegral := Integral;
     TreeView_SetItem(Node.Handle, ItemEx);
   end;
+end;
+
+{ TfmMain.ShortCutToHotKey
+
+  Преобразовывает TShortCut в HotKey}
+procedure TfmMain.ShortCutToHotKey(aHotKey: TShortCut; var aKey: Word;
+  var aModifiers: Uint);
+var
+  Shift: TShiftState;
+begin
+  ShortCutToKey(aHotKey, aKey, Shift);
+  aModifiers := 0;
+  if (ssShift in Shift) then
+    aModifiers := aModifiers or MOD_SHIFT;
+  if (ssAlt in Shift) then
+    aModifiers := aModifiers or MOD_ALT;
+  if (ssCtrl in Shift) then
+    aModifiers := aModifiers or MOD_CONTROL;
 end;
 
 { TfmMain.ShowEvent
@@ -1271,9 +1307,18 @@ begin
   // tvList.FullExpand;
 end;
 
+{ TfmMain.WMHotKey
+
+  Обработка нажатия горячей клавиши для сворачивания }
+procedure TfmMain.WMHotKey(var aMsg: TWMHotKey);
+begin
+  if aMsg.HotKey = FHotkey then
+    tiTray.OnClick(Self);
+end;
+
 { TstrList }
 
-{ TstrList.WMHScroll
+{ TScrTreeView.WMHScroll
 
   При скроле обновимся, не используется... }
 { procedure TScrTreeView.WMHScroll(var Message: TWMHScroll);

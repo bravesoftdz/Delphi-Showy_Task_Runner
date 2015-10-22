@@ -15,7 +15,6 @@ begin
   ReportMemoryLeaksOnShutdown := true; // Проверка на утечки памяти
   Application.Initialize;
   Application.CreateForm(TfmMain, fmMain);
-  // SetWindowLong(Application.Handle, GWL_EXSTYLE, NOT WS_EX_APPWINDOW);
   Application.Title := fmMain.Caption;
   Application.Run;
 
