@@ -91,8 +91,8 @@ begin
       UpdateLang;
       Caption := fmMain.lsMain.GetCaption(69, 1);
       edName.Text := aGroups.Items[aGroups.GetGroupIndex(aId)].Name;
-      fdGroup.Font.Assign(aGroups.Items[aGroups.GetGroupIndex(aId)]
-          .GetGroupFont);
+      aGroups.Items[aGroups.GetGroupIndex(aId)]
+          .GetGroupFont(fdGroup.Font);
       for i := 0 to aGroups.Count - 1 do
       begin
         cmbGroup.Items.Add(aGroups.Items[i].Name + ' |' + inttostr

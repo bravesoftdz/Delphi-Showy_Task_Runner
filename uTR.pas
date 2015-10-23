@@ -17,8 +17,6 @@ uses
   IniFiles, Forms, DateUtils, ShellAPI;
 
 type
-  PInteger = ^integer;
-
   { TGroupItem
 
     Класс элемента группы }
@@ -31,10 +29,10 @@ type
     FExpanded: boolean;
   public
     constructor Create(const aName: string; const aId, aParentId: integer;
-      var aFont: TFont; aExpanded: boolean = true);
+      aFont: TFont; aExpanded: boolean = true);
     destructor Destroy; override;
     procedure SetGroupFont(aFont: TFont);
-    function GetGroupFont: TFont;
+    procedure GetGroupFont(aFont: TFont);
     property Id: integer read FId;
     property Name: string read FName write FName;
     property ParentId: integer read FParentId write FParentId;
@@ -1028,7 +1026,7 @@ end;
 
 // Инициализация элемента группы
 constructor TGroupItem.Create(const aName: string; const aId,
-  aParentId: integer; var aFont: TFont; aExpanded: boolean);
+  aParentId: integer; aFont: TFont; aExpanded: boolean);
 begin
   inherited Create;
   Self.FId := aId;
@@ -1365,10 +1363,10 @@ begin
   inherited Destroy;
 end;
 
-function TGroupItem.GetGroupFont: TFont;
+procedure TGroupItem.GetGroupFont(aFont: TFont);
 begin
   if FFont <> nil then
-    Result := FFont;
+    aFont.Assign(FFont);
 end;
 
 procedure TGroupItem.SetGroupFont(aFont: TFont);

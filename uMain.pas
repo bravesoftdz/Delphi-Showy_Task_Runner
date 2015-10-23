@@ -1183,7 +1183,7 @@ begin
       end
       else if (Node.Data <> nil) and (TObject(Node.Data) is TGroupItem) then
       begin
-        Font.Assign(TGroupItem(Node.Data).GetGroupFont);
+        TGroupItem(Node.Data).GetGroupFont(Font);
         aIntegral := Font.Size div tvList.Font.Size;
         SetNodeHeight(Node, aIntegral); // Установка высоты элемента
       end;
@@ -1192,7 +1192,7 @@ begin
         Brush.Color := $00FFD2A6;
         if (Node.Data <> nil) and (TObject(Node.Data) is TGroupItem) then
         begin
-          Font.Assign(TGroupItem(Node.Data).GetGroupFont);
+          TGroupItem(Node.Data).GetGroupFont(Font);
           aIntegral := Font.Size div tvList.Font.Size;
           SetNodeHeight(Node, aIntegral); // Установка высоты элемента
         end
@@ -1233,7 +1233,7 @@ begin
         end
         else if (Node.Data <> nil) and (TObject(Node.Data) is TGroupItem) then
         begin
-          Font.Assign(TGroupItem(Node.Data).GetGroupFont);
+          TGroupItem(Node.Data).GetGroupFont(Font);
           aIntegral := Font.Size div tvList.Font.Size;
           SetNodeHeight(Node, aIntegral); // Установка высоты элемента
         end;

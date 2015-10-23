@@ -12,7 +12,9 @@ uses
 {$R *.res}
 
 begin
+{$IFDEF DEBUG}
   ReportMemoryLeaksOnShutdown := true; // Проверка на утечки памяти
+{$ENDIF}
   Application.Initialize;
   Application.CreateForm(TfmMain, fmMain);
   Application.Title := fmMain.Caption;
