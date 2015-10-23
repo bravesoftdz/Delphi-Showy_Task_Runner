@@ -31,6 +31,10 @@ type
     // message WM_VSCROLL;
   end;
 
+  TSTRHotkey = class(THotkey)
+
+  end;
+
   TfmMain = class(TForm)
     pcMain: TPageControl;
     tsMain: TTabSheet;
@@ -120,7 +124,8 @@ type
     SelectedEvent: TEvent; // Выбраное задание
     SelectedGroup: TGroupItem; // Выбраная группа
     CurrentLanguage: string; // Текущий язык
-    FHotkey, FMainHotKey: Integer;
+    FHotkey, FHotKeyId: Integer; // Горячие клавиши
+    HotKeyControl: TSTRHotkey;
     function GetGroupIndex(const gId: Integer; var Tree: TTreeView): Integer;
     procedure ShowGroups(var Tree: TTreeView; var Groups: TGroupList);
     procedure ExpandGroups(var Tree: TTreeView);
@@ -128,14 +133,16 @@ type
     procedure ShowEvent(const Event: TEvent);
     procedure ShowNextEvents(var Events: TEventList);
     procedure ShowTaskPanel;
-    procedure SaveFormPos(const FileName: TFileName = 'app_pos.data');
-    procedure LoadFormState(const FileName: TFileName = 'app_pos.data');
+    procedure SaveFormState(const FileName: TFileName = 'settings.ini');
+    procedure LoadFormState(const FileName: TFileName = 'settings.ini');
     procedure SetAutoRun(const Auto: Boolean);
     procedure DeselectItems;
     procedure DrawButton(ARect: TRect; Node: TTreeNode);
     procedure DrawImage(NodeRect: TRect; ImageIndex: Integer);
     procedure SetNodeHeight(Node: TTreeNode; Integral: Integer);
     procedure CreateTVList;
+    procedure CreateHotkeyControl;
+    procedure InitForm;
     function GetNextItemDate(const aValue: string): TDateTime;
     function GetTextDateDiff(const aValue: real): string;
     function Num2Day(const aNum: Integer; const aSpaces: Boolean = true)
@@ -151,6 +158,7 @@ type
     procedure ShortCutToHotKey(aHotKey: TShortCut; var aKey: Word;
       var aModifiers: Uint);
     procedure RegisterMainHotKey(const aKey: TShortCut);
+    procedure OnHotKeyChange(Sender: TObject);
   public
     GroupList: TGroupList; // Список групп
     EventList: TEventList; // Список заданий
@@ -190,6 +198,22 @@ procedure TfmMain.btnDoneClick(Sender: TObject);
 begin
   if EventSelected then
     SelectedEvent.eDone := true;
+end;
+
+procedure TfmMain.CreateHotkeyControl;
+begin
+  HotKeyControl := TSTRHotkey.Create(Self);
+  HotKeyControl.Width := stsBar.Panels[1].Width - 3;
+  HotKeyControl.Height := stsBar.Height - 3;
+  HotKeyControl.Left := stsBar.Panels[0].Width + 1;
+  HotKeyControl.Top := 2;
+  HotKeyControl.Parent := stsBar;
+  TSTRHotkey(HotKeyControl).Font.Size := 6;
+  TSTRHotkey(HotKeyControl).Font.Name := 'Verdana';
+  TSTRHotkey(HotKeyControl).Font.Style := TSTRHotkey(HotKeyControl)
+    .Font.Style - [fsBold];
+  HotKeyControl.HotKey := FHotkey;
+  HotKeyControl.OnChange := OnHotKeyChange;
 end;
 
 { TfmMain.CreateTVList
@@ -364,8 +388,8 @@ begin
   GroupList.SaveGroups; // Сохраняем список групп
   GroupList.Free; // Освобождаем
   LangList.Free; // Освобождаем список с языком
-  SaveFormPos; // Сохраняем настройки формы
-  tvList.Free;
+  HotKeyControl.Free; //
+  SaveFormState; // Сохраняем настройки формы
 end;
 
 { TfmMain.FormCreate
@@ -373,31 +397,7 @@ end;
   Инициализация всего при создании }
 procedure TfmMain.FormCreate(Sender: TObject);
 begin
-  CreateTVList; // Создаем наш кастомный TTreeView
-  LoadFormState(); // Загружаем настройки формы
-
-  LangList := TStringList.Create; // Создаем объект для списка языков
-  lsMain.FileName := ExtractFilePath(ParamStr(0))
-    + 'LS_' + CurrentLanguage + '.ini';
-  lsMain.LoadLanguage; // Загружаем язык из настроек
-  lsMain.GetLanguageList(LangList); // Узнаем список доступных языков
-  UpdateLang; // Обновляем язык
-
-  stsBar.Panels.Add; // Настройка панели
-  stsBar.Panels[0].Width := 150; // --//--
-  stsBar.Font.Style := [fsBold]; // --//--
-
-  GroupList := TGroupList.Create; // Создаем объект для списка групп
-  GroupList.LoadGroups; // Загружаем из файла
-  GroupList.AutoSave := true; // Разрешаем автосохранение
-
-  EventList := TEventList.Create; // Создаем объект для списка задач
-  EventList.LoadEvents; // Загружаем из файла
-  EventList.AutoSave := true; // Разрешаем автосохранение
-  UpdateList; // Обновляем список
-  ShowTaskPanel; // Показываем панель
-
-  Application.OnMinimize := tiTray.OnClick; // Для минимизации у нас есть своя процедура
+  InitForm;
 end;
 
 { TfmMain.GetGroupIndex
@@ -447,6 +447,43 @@ begin
   Result := IntToStr(days) + Num2Day(days) + IntToStr(hours) + Num2Hour(hours)
     + IntToStr(minutes) + Num2Minute(minutes) + IntToStr(seconds) + Num2Second
     (seconds);
+end;
+
+{ TfmMain.InitForm
+
+  Процедура инициализации всего при создании }
+procedure TfmMain.InitForm;
+begin
+  CreateTVList; // Создаем наш кастомный TTreeView
+  LoadFormState(); // Загружаем настройки формы
+
+  LangList := TStringList.Create; // Создаем объект для списка языков
+  lsMain.FileName := ExtractFilePath(ParamStr(0))
+    + 'LS_' + CurrentLanguage + '.ini';
+  lsMain.LoadLanguage; // Загружаем язык из настроек
+  lsMain.GetLanguageList(LangList); // Узнаем список доступных языков
+  UpdateLang; // Обновляем язык
+
+  stsBar.Panels.Add; // Настройка панели
+  stsBar.Panels[0].Width := 200; // --//--
+  stsBar.Font.Style := [fsBold]; // --//--
+
+  stsBar.Panels.Add;
+  stsBar.Panels[1].Width := 70;
+
+  CreateHotkeyControl; // Создаем кастомный THotKey
+
+  GroupList := TGroupList.Create; // Создаем объект для списка групп
+  GroupList.LoadGroups; // Загружаем из файла
+  GroupList.AutoSave := true; // Разрешаем автосохранение
+
+  EventList := TEventList.Create; // Создаем объект для списка задач
+  EventList.LoadEvents; // Загружаем из файла
+  EventList.AutoSave := true; // Разрешаем автосохранение
+  UpdateList; // Обновляем список
+  ShowTaskPanel; // Показываем панель
+
+  Application.OnMinimize := tiTray.OnClick; // Для минимизации у нас есть своя процедура
 end;
 
 { TfmMain.lbNextClick
@@ -532,6 +569,8 @@ begin
     CurrentLanguage := F.ReadString('Program', 'Language', 'UA');
     fmMain.Width := F.ReadInteger('Program', 'Width', 530);
     fmMain.Height := F.ReadInteger('Program', 'Height', 720);
+    FHotkey := F.ReadInteger('Program', 'Hotkey', 16456);
+    RegisterMainHotKey(FHotkey);
     miRunInTray.Checked := F.ReadBool('Program', 'RunInTray', false);
     if miRunInTray.Checked then
     begin
@@ -670,7 +709,6 @@ end;
 procedure TfmMain.miRunInTrayClick(Sender: TObject);
 begin
   miRunInTray.Checked := not miRunInTray.Checked;
-  SaveFormPos;
 end;
 
 function TfmMain.Num2Day(const aNum: Integer; const aSpaces: Boolean): string;
@@ -752,6 +790,15 @@ begin
     Result := ' ' + Result + ' ';
 end;
 
+{ TfmMain.OnHotKeyChange
+
+  Регистрируем горячую клавишу }
+procedure TfmMain.OnHotKeyChange(Sender: TObject);
+begin
+  FHotkey := HotKeyControl.HotKey;
+  RegisterMainHotKey(FHotkey);
+end;
+
 { TfmMain.ppAutoPopup
 
   Отображение меню развертывания окна в зависимости от его статуса }
@@ -794,22 +841,25 @@ begin
   end;
 end;
 
+{ TfmMain.RegisterMainHotKey
+
+  Регистрация горячей клавиши }
 procedure TfmMain.RegisterMainHotKey(const aKey: TShortCut);
 var
   Key: Word;
   Modifiers: Uint;
 begin
-  UnRegisterHotKey(Handle, FHotkey);
-  GlobalDeleteAtom(FHotkey);
+  UnRegisterHotKey(fmMain.Handle, FHotKeyId);
+  GlobalDeleteAtom(FHotKeyId);
   ShortCutToHotKey(aKey, Key, Modifiers);
-  FHotkey := GlobalAddAtom('STR_v.0.2_Hotkey');
-  RegisterHotKey(Handle, FHotkey, Modifiers, Key);
+  FHotKeyId := GlobalAddAtom('STR_v.0.2_Hotkey');
+  RegisterHotKey(fmMain.Handle, FHotKeyId, Modifiers, Key);
 end;
 
-{ TfmMain.SaveFormPos
+{ TfmMain.SaveFormState
 
   Сохранение настроек }
-procedure TfmMain.SaveFormPos(const FileName: TFileName);
+procedure TfmMain.SaveFormState(const FileName: TFileName);
 var
   F: TIniFile;
 begin
@@ -821,6 +871,7 @@ begin
     F.WriteInteger('Program', 'Width', fmMain.Width);
     F.WriteInteger('Program', 'Height', fmMain.Height);
     F.WriteBool('Program', 'RunInTray', miRunInTray.Checked);
+    F.WriteInteger('Program', 'Hotkey', fmMain.FHotkey);
   finally
     F.Free;
   end;
@@ -853,7 +904,7 @@ end;
 
 { TfmMain.ShortCutToHotKey
 
-  Преобразовывает TShortCut в HotKey}
+  Преобразовывает TShortCut в HotKey }
 procedure TfmMain.ShortCutToHotKey(aHotKey: TShortCut; var aKey: Word;
   var aModifiers: Uint);
 var
@@ -1312,7 +1363,7 @@ end;
   Обработка нажатия горячей клавиши для сворачивания }
 procedure TfmMain.WMHotKey(var aMsg: TWMHotKey);
 begin
-  if aMsg.HotKey = FHotkey then
+  if aMsg.HotKey = FHotKeyId then
     tiTray.OnClick(Self);
 end;
 
