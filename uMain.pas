@@ -162,6 +162,7 @@ type
   public
     GroupList: TGroupList; // Список групп
     EventList: TEventList; // Список заданий
+    EventThread: TEventThread; // Поток для обработки событий
     LangList: TStringList; // Список языков
     tvList: TScrTreeView; // Список для отображения всего и вся
     procedure UpdateList; // Обновление списка с группами и заданиями
@@ -382,7 +383,8 @@ end;
   Закрытие формы }
 procedure TfmMain.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
-  EventList.Stop; // Останавливаем поток
+  EventThread.Suspend; // Останавливаем поток
+  EventThread.Free; // Освобождаем
   EventList.SaveEvents; // Сохраняем список задач
   EventList.Free; // Освобождаем
   GroupList.SaveGroups; // Сохраняем список групп
@@ -482,6 +484,10 @@ begin
   EventList.AutoSave := true; // Разрешаем автосохранение
   UpdateList; // Обновляем список
   ShowTaskPanel; // Показываем панель
+
+  EventThread:= TEventThread.Create;
+  EventThread.InitList(@EventList);
+  EventThread.Resume;
 
   Application.OnMinimize := tiTray.OnClick; // Для минимизации у нас есть своя процедура
 end;
@@ -625,7 +631,7 @@ procedure TfmMain.miEditEventClick(Sender: TObject);
 begin
   try
     if EventSelected and not GroupSelected then
-      if ShowEventEditingDialog(SelectedEvent, EventList, GroupList) then
+      if ShowEventEditingDialog(SelectedEvent, EventList, GroupList, EventThread) then
         ShowMessage(lsMain.GetCaption(0, 0));
     if GroupSelected and not EventSelected then
       ShowMessage(lsMain.GetCaption(2));
@@ -672,14 +678,14 @@ procedure TfmMain.miNewEventClick(Sender: TObject);
 begin
   try
     if EventSelected and not GroupSelected then
-      if ShowEventCreationDialog(SelectedEvent.eGroup, EventList, GroupList)
+      if ShowEventCreationDialog(SelectedEvent.eGroup, EventList, GroupList, EventThread)
         then
         ShowMessage(lsMain.GetCaption(15, 0));
     if GroupSelected and not EventSelected then
-      if ShowEventCreationDialog(SelectedGroup.Id, EventList, GroupList) then
+      if ShowEventCreationDialog(SelectedGroup.Id, EventList, GroupList, EventThread) then
         ShowMessage(lsMain.GetCaption(15, 0));
     if not GroupSelected and not EventSelected then
-      if ShowEventCreationDialog(0, EventList, GroupList) then
+      if ShowEventCreationDialog(0, EventList, GroupList, EventThread) then
         ShowMessage(lsMain.GetCaption(15, 0));
   finally
     DeselectItems;

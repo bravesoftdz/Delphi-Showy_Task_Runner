@@ -39,38 +39,38 @@ type
     property Expanded: boolean read FExpanded write FExpanded;
   end;
 
-  PGroupItem = ^TGroupItem;
-
   { TGroupList
 
     Класс объекта списка групп }
   TGroupList = class(TObjectList<TGroupItem>)
   private
-    gFileName: string;
-    gLoaded: boolean;
-    gDefFont: TFont;
+    FAutoSave: boolean;
+    FFileName: string;
+    FLoaded: boolean;
+    FDefFont: TFont;
     function GetUnsedgId: integer;
     function GetGroupItem(const aId: integer): TGroupItem;
     function GroupExists(const aId: integer): boolean;
-    class function SerializeFont(var sFont: TFont; const sep: char = chr(2))
+    class function SerializeFont(aFont: TFont; const aSep: char = chr(2))
       : string;
-    class procedure UnSerializeFont(var sFont: TFont; const strFont: string;
-      const sep: char = chr(2));
+    class procedure UnSerializeFont(aFont: TFont; const strFont: string;
+      const aSep: char = chr(2));
     procedure Add(Value: TGroupItem);
-    procedure Delete(Value: integer);
+    procedure Delete(const Value: integer);
     function HasChild(const aId: integer): boolean;
   public
-    AutoSave: boolean;
-    constructor Create(const gFileName: string = '');
+    constructor Create(const aFileName: string = '');
     destructor Destroy; override;
-    function AddGroup(const gName: string; gParentId: integer = 0): integer;
+    function AddGroup(const aName: string; const aParentId: integer = 0)
+      : integer;
     function GetGroupIndex(const aId: integer): integer;
     function GetMaxGroupId: integer;
-    procedure SaveGroups;
-    procedure LoadGroups;
+    procedure SaveGroups(const aFileName: string = 'group_list.data');
+    procedure LoadGroups(const aFileName: string = 'group_list.data');
     procedure DeleteGroup(const aId: integer);
-    property FileName: string read gFileName write gFileName;
-    property Loaded: boolean read gLoaded;
+    property AutoSave: boolean read FAutoSave write FAutoSave;
+    property FileName: string read FFileName write FFileName;
+    property Loaded: boolean read FLoaded;
     property MaxGroupId: integer read GetMaxGroupId;
   end;
 
@@ -148,35 +148,14 @@ type
     property OnChange: TNotifyEvent read FOnChangeEvent write FOnChangeEvent;
   end;
 
-  { TEventThread
-
-    Класс потока для проверки наступления события }
-  TEventThread = class(TThread)
-  private
-    currTime: TDateTime;
-    currEvent: TEvent;
-    procedure DoSingle;
-    procedure DoDay;
-    procedure DoWeek;
-    procedure DoMonth;
-    procedure DoFirstWDMonth;
-    procedure DoLastWDMonth;
-    procedure UpdateWindow;
-  protected
-    procedure Execute; override;
-  public
-    constructor Create;
-    destructor Destroy; override;
-  end;
-
   { TEventList
 
     Класс списка событий }
   TEventList = class(TObjectList<TEvent>)
   private
-    eChecker: TEventThread;
-    eLoaded: boolean;
-    eFileName: string;
+    FLoaded: boolean;
+    FFileName: string;
+    FAutoSave: boolean;
     procedure Add(Value: TEvent);
     procedure Delete(Value: integer);
     function GetUnusedeId: integer;
@@ -189,7 +168,6 @@ type
     class function LineToCMD(const Line: string; sep: char = chr(3))
       : TCircleMArrDays;
   public
-    AutoSave: boolean;
     constructor Create(const aFileName: string = '');
     destructor Destroy; override;
     procedure AddEvent(var Groups: TGroupList; const eHeader, eMsg: string;
@@ -202,12 +180,35 @@ type
     procedure DeleteEvent(const eId: integer);
     procedure SaveEvents;
     procedure LoadEvents;
-    procedure Run;
-    procedure Stop;
     procedure SortByTimeMinFirst;
     procedure SortByTimeMaxFirst;
-    property Loaded: boolean read eLoaded;
-    property FileName: string read eFileName write eFileName;
+    property AutoSave: boolean read FAutoSave write FAutoSave;
+    property Loaded: boolean read FLoaded;
+    property FileName: string read FFileName write FFileName;
+  end;
+
+  { TEventThread
+
+    Класс потока для проверки наступления события }
+  TEventThread = class(TThread)
+  private
+    FTime: TDateTime;
+    FEvent: TEvent;
+    FList: Pointer;
+    FInitiated: boolean;
+    procedure DoSingle;
+    procedure DoDay;
+    procedure DoWeek;
+    procedure DoMonth;
+    procedure DoFirstWDMonth;
+    procedure DoLastWDMonth;
+    procedure UpdateWindow;
+  protected
+    procedure Execute; override;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure InitList(aList: Pointer);
   end;
 
 function ETypeToStr(const eType: TEventType): string;
@@ -620,9 +621,9 @@ procedure TEventList.Add(Value: TEvent);
 begin
   inherited Add(Value);
   if Self.Count > 0 then
-    eLoaded := true
+    FLoaded := true
   else
-    eLoaded := false;
+    FLoaded := false;
 end;
 
 { TEventList.AddEvent
@@ -638,40 +639,35 @@ var
   Event: TEvent;
 begin
   try
-    try
-      Stop;
-      Event := TEvent.Create;
-      Event.FId := Self.GetUnusedeId;
-      Event.FType := eType;
-      Event.FTime := eTime;
-      Event.FCircleTimeType := eCircleTimeType;
-      Event.FCircleDays := eCircleDays;
-      Event.FCircleMonthDays := eCircleMonthDays;
-      Event.FReminder := eTime;
-      Event.FHeader := eHeader;
-      Event.FMsg := eMsg;
-      Event.FStartPrgm := eStartPrgm;
-      Event.OnChange := Event.EventChange;
-      if eStartPrgm then
-        Event.ePrgmPath := ePrgmPath
-      else
-        Event.ePrgmPath := '';
-      if (eGroup > Groups.MaxGroupId) or (eGroup < 0) then
-        Event.eGroup := 0
-      else
-        Event.eGroup := eGroup;
-      Event.eDone := eDone;
-      Add(Event);
-      if AutoSave then
-        SaveEvents; // Сохраняем если указано
-    except
-      on E: Exception do
-        MessageBox(Application.Handle, PChar(fmMain.lsMain.GetCaption(18)
-              + #13#10 + fmMain.lsMain.GetCaption(3) + E.Message), PChar
-            (fmMain.lsMain.GetCaption(13)), 48);
-    end;
-  finally
-    Run;
+    Event := TEvent.Create;
+    Event.FId := Self.GetUnusedeId;
+    Event.FType := eType;
+    Event.FTime := eTime;
+    Event.FCircleTimeType := eCircleTimeType;
+    Event.FCircleDays := eCircleDays;
+    Event.FCircleMonthDays := eCircleMonthDays;
+    Event.FReminder := eTime;
+    Event.FHeader := eHeader;
+    Event.FMsg := eMsg;
+    Event.FStartPrgm := eStartPrgm;
+    Event.OnChange := Event.EventChange;
+    if eStartPrgm then
+      Event.ePrgmPath := ePrgmPath
+    else
+      Event.ePrgmPath := '';
+    if (eGroup > Groups.MaxGroupId) or (eGroup < 0) then
+      Event.eGroup := 0
+    else
+      Event.eGroup := eGroup;
+    Event.eDone := eDone;
+    Add(Event);
+    if FAutoSave then
+      SaveEvents; // Сохраняем если указано
+  except
+    on E: Exception do
+      MessageBox(Application.Handle, PChar(fmMain.lsMain.GetCaption(18)
+            + #13#10 + fmMain.lsMain.GetCaption(3) + E.Message), PChar
+          (fmMain.lsMain.GetCaption(13)), 48);
   end;
 end;
 
@@ -713,9 +709,7 @@ end;
 constructor TEventList.Create(const aFileName: string = '');
 begin
   inherited Create;
-  eChecker := TEventThread.Create;
-  eFileName := aFileName;
-  Run;
+  FFileName := aFileName;
 end;
 
 { TEventList.Delete
@@ -725,9 +719,9 @@ procedure TEventList.Delete(Value: integer);
 begin
   inherited Delete(Value);
   if Self.Count > 0 then
-    eLoaded := true
+    FLoaded := true
   else
-    eLoaded := false;
+    FLoaded := false;
 end;
 
 { TEventList.DeleteEvent
@@ -738,19 +732,17 @@ var
   i: integer;
 begin
   try
-    Stop;
     for i := 0 to Self.Count - 1 do
     begin
-      if Self.Items[i].FId = eId then
+      if Items[i].FId = eId then
       begin
-        Self.Delete(i);
+        Delete(i);
         break;
       end;
     end;
   finally
-    if AutoSave then
+    if FAutoSave then
       SaveEvents;
-    Run;
   end;
 end;
 
@@ -759,8 +751,6 @@ end;
   Останавливаем поток, освобождаем ресурсы }
 destructor TEventList.Destroy;
 begin
-  Stop;
-  eChecker.Free;
   inherited;
 end;
 
@@ -832,19 +822,18 @@ var
   eEvent: TEvent;
   numLine: integer;
 begin
-  if eFileName = '' then
-    eFileName := ExtractFilePath(ParamStr(0)) + 'event_list.data';
-  if not FileExists(eFileName) then
+  if FFileName = '' then
+    FFileName := ExtractFilePath(ParamStr(0)) + 'event_list.data';
+  if not FileExists(FFileName) then
     Exit;
   eSep := chr(1);
   SetLength(eArrLine, 13);
   numLine := 0;
   try
-    Self.Stop;
-    Self.Clear;
-    eLoaded := false;
+    Clear;
+    FLoaded := false;
     try
-      AssignFile(eFile, eFileName);
+      AssignFile(eFile, FFileName);
       Reset(eFile);
     except
       on E: Exception do
@@ -882,8 +871,8 @@ begin
     except
       on E: Exception do
       begin
-        Self.Clear;
-        eLoaded := false;
+        Clear;
+        FLoaded := false;
         MessageBox(Application.Handle, PChar(fmMain.lsMain.GetCaption(19)
               + #13#10 + fmMain.lsMain.GetCaption(20) + inttostr(numLine)
               + ': ' + E.Message), PChar(fmMain.lsMain.GetCaption(13)), 48);
@@ -893,21 +882,8 @@ begin
     SetLength(eArrLine, 0);
     CloseFile(eFile);
     if Self.Count > 0 then
-      eLoaded := true;
-    Self.Run;
+      FLoaded := true;
   end;
-end;
-
-// Запуск потока для проверки наступления события
-procedure TEventList.Run;
-begin
-  if not Assigned(eChecker) then
-  begin
-    eChecker := TEventThread.Create;
-    eChecker.Resume;
-  end
-  else if eChecker.Suspended then
-    eChecker.Resume;
 end;
 
 // Сохранение списка событий
@@ -919,13 +895,13 @@ var
   eSep: char;
   numLine: integer;
 begin
-  if eFileName = '' then
-    eFileName := ExtractFilePath(ParamStr(0)) + 'event_list.data';
+  if FFileName = '' then
+    FFileName := ExtractFilePath(ParamStr(0)) + 'event_list.data';
   eSep := chr(1);
   numLine := 0;
   try
     try
-      AssignFile(eFile, eFileName);
+      AssignFile(eFile, FFileName);
       Rewrite(eFile);
     except
       on E: Exception do
@@ -1012,16 +988,6 @@ begin
       end));
 end;
 
-// Приостановление потока
-procedure TEventList.Stop;
-begin
-  if Assigned(eChecker) then
-  begin
-    if not eChecker.Suspended then
-      eChecker.Suspend;
-  end;
-end;
-
 { TGroupItem }
 
 // Инициализация элемента группы
@@ -1044,13 +1010,13 @@ procedure TGroupList.Add(Value: TGroupItem);
 begin
   inherited Add(Value);
   if Self.Count > 0 then
-    gLoaded := true
+    FLoaded := true
   else
-    gLoaded := false;
+    FLoaded := false;
 end;
 
 // Добавление новой группы в список
-function TGroupList.AddGroup(const gName: string; gParentId: integer = 0)
+function TGroupList.AddGroup(const aName: string; const aParentId: integer = 0)
   : integer;
 var
   gFilteredName: string;
@@ -1058,14 +1024,14 @@ var
 begin
   Result := 0;
   try
-    gFilteredName := gName;
+    gFilteredName := aName;
     gFilteredName := StringReplace(gFilteredName, chr(1), '',
       [rfReplaceAll, rfIgnoreCase]);
     gFilteredName := StringReplace(gFilteredName, chr(2), '',
       [rfReplaceAll, rfIgnoreCase]);
     gUnusedId := GetUnsedgId;
-    Self.Add(TGroupItem.Create(gFilteredName, gUnusedId, gParentId, gDefFont));
-    if AutoSave then
+    Self.Add(TGroupItem.Create(gFilteredName, gUnusedId, aParentId, FDefFont));
+    if FAutoSave then
       SaveGroups;
     Result := gUnusedId;
   except
@@ -1076,31 +1042,37 @@ begin
   end;
 end;
 
-// Конструктор
-constructor TGroupList.Create(const gFileName: string = '');
+{ TGroupList.Create
+
+  Конструктор }
+constructor TGroupList.Create(const aFileName: string = '');
 begin
   inherited Create;
-  Self.gFileName := gFileName;
-  gLoaded := false;
-  gDefFont := TFont.Create;
-  gDefFont.Name := 'Verdana';
-  gDefFont.Size := 9;
-  gDefFont.Color := clBlack;
+  FFileName := aFileName;
+  FLoaded := false;
+  FDefFont := TFont.Create;
+  FDefFont.Name := 'Verdana';
+  FDefFont.Size := 9;
+  FDefFont.Color := clBlack;
 end;
 
-// Удалене группы вместе с дочерними
-procedure TGroupList.Delete(Value: integer);
+{ TGroupList.Delete
+
+  Удалене группы вместе с дочерними }
+procedure TGroupList.Delete(const Value: integer);
 begin
   inherited Delete(Value);
   if Self.Count > 0 then
-    gLoaded := true
+    FLoaded := true
   else
-    gLoaded := false;
-  if AutoSave then
+    FLoaded := false;
+  if FAutoSave then
     SaveGroups;
 end;
 
-// Удаление группы по ее айди
+{ TGroupList.DeleteGroup
+
+  Удаление группы по ее айди }
 procedure TGroupList.DeleteGroup(const aId: integer);
 var
   i: integer;
@@ -1110,12 +1082,12 @@ begin
     if not GroupExists(aId) then
       Exit;
     repeat
-      if Self.Items[i].ParentId = aId then
+      if Items[i].ParentId = aId then
       begin
-        DeleteGroup(Self.Items[i].Id);
+        DeleteGroup(Items[i].Id);
         i := -1;
       end
-      else if Self.Items[i].Id = aId then
+      else if Items[i].Id = aId then
       begin
         Self.Delete(i);
         i := -1;
@@ -1133,8 +1105,8 @@ end;
 // Освобождаем созданный шрифт по умолчанию
 destructor TGroupList.Destroy;
 begin
-  gDefFont.Free;
-  inherited Destroy;
+  FDefFont.Free;
+  inherited;
 end;
 
 // Индекс группы в списке по ее айди
@@ -1215,7 +1187,7 @@ begin
 end;
 
 // Загрузка данных групп из файла
-procedure TGroupList.LoadGroups;
+procedure TGroupList.LoadGroups(const aFileName: string);
 var
   gFile: TextFile;
   gLine: string;
@@ -1224,22 +1196,22 @@ var
   numLine: integer;
   gFont: TFont;
 begin
-  if gFileName = '' then
-    gFileName := ExtractFilePath(ParamStr(0)) + 'group_list.data';
-  if not FileExists(gFileName) then
+  if FFileName = '' then
+    FFileName := ExtractFilePath(ParamStr(0)) + aFileName;
+  if not FileExists(FFileName) then
     Exit;
   gSep := chr(1);
   SetLength(gArrLine, 5);
   numLine := 0;
   try
     try
-      AssignFile(gFile, gFileName);
+      AssignFile(gFile, FFileName);
       Reset(gFile);
     except
       on E: Exception do
       begin
         Self.Clear;
-        gLoaded := false;
+        FLoaded := false;
         MessageBox(Application.Handle, PChar(fmMain.lsMain.GetCaption(34)
               + #13#10 + fmMain.lsMain.GetCaption(3) + E.Message), PChar
             (fmMain.lsMain.GetCaption(13)), 48);
@@ -1262,7 +1234,7 @@ begin
       on E: Exception do
       begin
         Self.Clear;
-        gLoaded := false;
+        FLoaded := false;
         MessageBox(Application.Handle, PChar(fmMain.lsMain.GetCaption(35)
               + #13#10 + fmMain.lsMain.GetCaption(20) + inttostr(numLine)
               + ': ' + E.Message), PChar(fmMain.lsMain.GetCaption(13)), 48);
@@ -1272,13 +1244,13 @@ begin
     gFont.Free;
     SetLength(gArrLine, 0);
     if Self.Count <> 0 then
-      gLoaded := true;
+      FLoaded := true;
     CloseFile(gFile);
   end;
 end;
 
 // Сохранение списка групп в файл
-procedure TGroupList.SaveGroups;
+procedure TGroupList.SaveGroups(const aFileName: string);
 var
   gFile: TextFile;
   i: integer;
@@ -1286,13 +1258,13 @@ var
   gSep: char;
   numLine: integer;
 begin
-  if gFileName = '' then
-    gFileName := ExtractFilePath(ParamStr(0)) + 'group_list.data';
+  if FFileName = '' then
+    FFileName := ExtractFilePath(ParamStr(0)) + aFileName;
   gSep := chr(1);
   numLine := 0;
   try
     try
-      AssignFile(gFile, gFileName);
+      AssignFile(gFile, FFileName);
       Rewrite(gFile);
     except
       on E: Exception do
@@ -1325,50 +1297,61 @@ begin
   end;
 end;
 
-// Преобразование шрифта в строку
-class function TGroupList.SerializeFont(var sFont: TFont; const sep: char = chr
-    (2)): string;
+{ TGroupList.SerializeFont
+
+  Преобразование шрифта в строку }
+class function TGroupList.SerializeFont(aFont: TFont; const aSep: char = chr(2))
+  : string;
 begin
   Result := '';
-  Result := inttostr(sFont.PixelsPerInch) + sep + inttostr(sFont.Charset)
-    + sep + ColorToString(sFont.Color) + sep + inttostr(sFont.Height)
-    + sep + sFont.Name + sep + inttostr(sFont.Charset) + sep + inttostr
-    (ord(sFont.Pitch)) + sep + FontStyletoStr(sFont.Style) + sep + inttostr
-    (sFont.Size);
+  Result := inttostr(aFont.PixelsPerInch) + aSep + inttostr(aFont.Charset)
+    + aSep + ColorToString(aFont.Color) + aSep + inttostr(aFont.Height)
+    + aSep + aFont.Name + aSep + inttostr(aFont.Charset) + aSep + inttostr
+    (ord(aFont.Pitch)) + aSep + FontStyletoStr(aFont.Style) + aSep + inttostr
+    (aFont.Size);
 end;
 
-// Преобразование строки в шрифт
-class procedure TGroupList.UnSerializeFont(var sFont: TFont;
-  const strFont: string; const sep: char = chr(2));
+{ TGroupList.UnSerializeFont
+
+  Преобразование строки в шрифт }
+class procedure TGroupList.UnSerializeFont(aFont: TFont; const strFont: string;
+  const aSep: char = chr(2));
 var
   arrStr: array of string;
 begin
   SetLength(arrStr, 9);
-  Explode(arrStr, sep, strFont);
-  sFont.PixelsPerInch := StrToInt(arrStr[0]);
-  sFont.Charset := StrToInt(arrStr[1]);
-  sFont.Color := StringToColor(arrStr[2]);
-  sFont.Height := StrToInt(arrStr[3]);
-  sFont.Name := arrStr[4];
-  sFont.Charset := StrToInt(arrStr[5]);
-  sFont.Pitch := TFontPitch(StrToInt(arrStr[6]));
-  sFont.Style := StrtoFontStyle(arrStr[7]);
-  sFont.Size := StrToInt(arrStr[8]);
+  Explode(arrStr, aSep, strFont);
+  aFont.PixelsPerInch := StrToInt(arrStr[0]);
+  aFont.Charset := StrToInt(arrStr[1]);
+  aFont.Color := StringToColor(arrStr[2]);
+  aFont.Height := StrToInt(arrStr[3]);
+  aFont.Name := arrStr[4];
+  aFont.Charset := StrToInt(arrStr[5]);
+  aFont.Pitch := TFontPitch(StrToInt(arrStr[6]));
+  aFont.Style := StrtoFontStyle(arrStr[7]);
+  aFont.Size := StrToInt(arrStr[8]);
 end;
 
-// Освобождаем созданный шрифт тоже
+{ TGroupItem.Destroy
+
+  Освобождаем созданный шрифт тоже }
 destructor TGroupItem.Destroy;
 begin
   FFont.Free;
-  inherited Destroy;
+  inherited;
 end;
 
+{ TGroupItem.GetGroupFont
+  Извлечение шрифта группы }
 procedure TGroupItem.GetGroupFont(aFont: TFont);
 begin
   if FFont <> nil then
     aFont.Assign(FFont);
 end;
 
+{ TGroupItem.SetGroupFont
+
+  Установка шрифта группы }
 procedure TGroupItem.SetGroupFont(aFont: TFont);
 begin
   if aFont <> nil then
@@ -1377,319 +1360,327 @@ end;
 
 { TEventThread }
 
-// Создаем приостановленный поток
+{ TEventThread.Create
+
+  Создаем приостановленный поток }
 constructor TEventThread.Create;
 begin
   inherited Create(true);
 end;
 
-// Удаляем
+{ TEventThread.Destroy
+
+  Удаляем }
 destructor TEventThread.Destroy;
 begin
   inherited;
 end;
 
-// Каждый день
+{ TEventThread.DoDay
+
+  Каждый день }
 procedure TEventThread.DoDay;
 var
   defReminder: integer;
 begin
-  if (currEvent.eTime <= currTime) and not currEvent.eDone then
+  if (FEvent.eTime <= FTime) and not FEvent.eDone then
   begin
-    if (currEvent.eReminder > currEvent.eTime) and
-      (currEvent.eReminder <= currTime) then
+    if (FEvent.eReminder > FEvent.eTime) and (FEvent.eReminder <= FTime) then
     begin
-      if currEvent.eStartPrgm then
-        if FileExists(currEvent.ePrgmPath) then
-          ShellExecute(Handle, 'open', PChar(currEvent.ePrgmPath), nil, nil,
+      if FEvent.eStartPrgm then
+        if FileExists(FEvent.ePrgmPath) then
+          ShellExecute(Handle, 'open', PChar(FEvent.ePrgmPath), nil, nil,
             SW_SHOWNORMAL);
-      if ShowTaskDialog(currEvent.eHeader + fmMain.lsMain.GetCaption(37),
-        currEvent.eMsg, defReminder, currEvent.eType) then
+      if ShowTaskDialog(FEvent.eHeader + fmMain.lsMain.GetCaption(37),
+        FEvent.eMsg, defReminder, FEvent.eType) then
       begin
-        currEvent.eReminder := currEvent.eTime;
-        currEvent.eTime := IncDay(currEvent.eTime, 1);
+        FEvent.eReminder := FEvent.eTime;
+        FEvent.eTime := IncDay(FEvent.eTime, 1);
       end
       else
       begin
-        currEvent.eReminder := IncSecond(currTime, defReminder);
+        FEvent.eReminder := IncSecond(FTime, defReminder);
       end;
     end
-    else if currEvent.eReminder <= currEvent.eTime then
+    else if FEvent.eReminder <= FEvent.eTime then
     begin
-      if currEvent.eStartPrgm then
-        if FileExists(currEvent.ePrgmPath) then
-          ShellExecute(Handle, 'open', PChar(currEvent.ePrgmPath), nil, nil,
+      if FEvent.eStartPrgm then
+        if FileExists(FEvent.ePrgmPath) then
+          ShellExecute(Handle, 'open', PChar(FEvent.ePrgmPath), nil, nil,
             SW_SHOWNORMAL);
-      if ShowTaskDialog(currEvent.eHeader, currEvent.eMsg, defReminder,
-        currEvent.eType) then
+      if ShowTaskDialog(FEvent.eHeader, FEvent.eMsg, defReminder, FEvent.eType)
+        then
       begin
-        currEvent.eReminder := currEvent.eTime;
-        currEvent.eTime := IncDay(currEvent.eTime, 1);
+        FEvent.eReminder := FEvent.eTime;
+        FEvent.eTime := IncDay(FEvent.eTime, 1);
       end
       else
       begin
-        currEvent.eReminder := IncSecond(currTime, defReminder);
+        FEvent.eReminder := IncSecond(FTime, defReminder);
       end;
     end;
     fmMain.UpdateList;
   end;
 end;
 
-// Каждый первый рабочий день месяца
+{ TEventThread.DoFirstWDMonth
+
+  Каждый первый рабочий день месяца }
 procedure TEventThread.DoFirstWDMonth;
 var
   defReminder: integer;
 begin
-  if (currEvent.eTime <= currTime) and not currEvent.eDone then
+  if (FEvent.eTime <= FTime) and not FEvent.eDone then
   begin
-    if (currEvent.eReminder > currEvent.eTime) and
-      (currEvent.eReminder <= currTime) then
+    if (FEvent.eReminder > FEvent.eTime) and (FEvent.eReminder <= FTime) then
     begin
-      if currEvent.eStartPrgm then
-        if FileExists(currEvent.ePrgmPath) then
-          ShellExecute(Handle, 'open', PChar(currEvent.ePrgmPath), nil, nil,
+      if FEvent.eStartPrgm then
+        if FileExists(FEvent.ePrgmPath) then
+          ShellExecute(Handle, 'open', PChar(FEvent.ePrgmPath), nil, nil,
             SW_SHOWNORMAL);
-      if ShowTaskDialog(currEvent.eHeader + fmMain.lsMain.GetCaption(37),
-        currEvent.eMsg, defReminder, currEvent.eType) then
+      if ShowTaskDialog(FEvent.eHeader + fmMain.lsMain.GetCaption(37),
+        FEvent.eMsg, defReminder, FEvent.eType) then
       begin
-        currEvent.eReminder := currEvent.eTime;
-        currEvent.eTime := GetTimeOfFWDMonth(currEvent.eTime);
+        FEvent.eReminder := FEvent.eTime;
+        FEvent.eTime := GetTimeOfFWDMonth(FEvent.eTime);
       end
       else
       begin
-        currEvent.eDone := false;
-        currEvent.eReminder := IncSecond(currTime, defReminder);
+        FEvent.eDone := false;
+        FEvent.eReminder := IncSecond(FTime, defReminder);
       end;
     end
-    else if (currEvent.eReminder <= currEvent.eTime) then
+    else if (FEvent.eReminder <= FEvent.eTime) then
     begin
-      if currEvent.eStartPrgm then
-        if FileExists(currEvent.ePrgmPath) then
-          ShellExecute(Handle, 'open', PChar(currEvent.ePrgmPath), nil, nil,
+      if FEvent.eStartPrgm then
+        if FileExists(FEvent.ePrgmPath) then
+          ShellExecute(Handle, 'open', PChar(FEvent.ePrgmPath), nil, nil,
             SW_SHOWNORMAL);
-      if ShowTaskDialog(currEvent.eHeader, currEvent.eMsg, defReminder,
-        currEvent.eType) then
+      if ShowTaskDialog(FEvent.eHeader, FEvent.eMsg, defReminder, FEvent.eType)
+        then
       begin
-        currEvent.eReminder := currEvent.eTime;
-        currEvent.eTime := GetTimeOfFWDMonth(currEvent.eTime);
+        FEvent.eReminder := FEvent.eTime;
+        FEvent.eTime := GetTimeOfFWDMonth(FEvent.eTime);
       end
       else
       begin
-        currEvent.eReminder := IncSecond(currTime, defReminder);
+        FEvent.eReminder := IncSecond(FTime, defReminder);
       end;
     end;
     fmMain.UpdateList;
   end;
 end;
 
-// Каждый последнй день рабочего месяца
+{ TEventThread.DoLastWDMonth
+
+  Каждый последнй день рабочего месяца }
 procedure TEventThread.DoLastWDMonth;
 var
   defReminder: integer;
 begin
-  if (currEvent.eTime <= currTime) and not currEvent.eDone then
+  if (FEvent.eTime <= FTime) and not FEvent.eDone then
   begin
-    if (currEvent.eReminder > currEvent.eTime) and
-      (currEvent.eReminder <= currTime) then
+    if (FEvent.eReminder > FEvent.eTime) and (FEvent.eReminder <= FTime) then
     begin
-      if currEvent.eStartPrgm then
-        if FileExists(currEvent.ePrgmPath) then
-          ShellExecute(Handle, 'open', PChar(currEvent.ePrgmPath), nil, nil,
+      if FEvent.eStartPrgm then
+        if FileExists(FEvent.ePrgmPath) then
+          ShellExecute(Handle, 'open', PChar(FEvent.ePrgmPath), nil, nil,
             SW_SHOWNORMAL);
-      if ShowTaskDialog(currEvent.eHeader + fmMain.lsMain.GetCaption(37),
-        currEvent.eMsg, defReminder, currEvent.eType) then
+      if ShowTaskDialog(FEvent.eHeader + fmMain.lsMain.GetCaption(37),
+        FEvent.eMsg, defReminder, FEvent.eType) then
       begin
-        currEvent.eReminder := currEvent.eTime;
-        currEvent.eTime := GetTimeOfLWDMonth(currTime);
+        FEvent.eReminder := FEvent.eTime;
+        FEvent.eTime := GetTimeOfLWDMonth(FTime);
       end
       else
       begin
-        currEvent.eDone := false;
-        currEvent.eReminder := IncSecond(currTime, defReminder);
+        FEvent.eDone := false;
+        FEvent.eReminder := IncSecond(FTime, defReminder);
       end;
     end
-    else if (currEvent.eReminder <= currEvent.eTime) then
+    else if (FEvent.eReminder <= FEvent.eTime) then
     begin
-      if currEvent.eStartPrgm then
-        if FileExists(currEvent.ePrgmPath) then
-          ShellExecute(Handle, 'open', PChar(currEvent.ePrgmPath), nil, nil,
+      if FEvent.eStartPrgm then
+        if FileExists(FEvent.ePrgmPath) then
+          ShellExecute(Handle, 'open', PChar(FEvent.ePrgmPath), nil, nil,
             SW_SHOWNORMAL);
-      if ShowTaskDialog(currEvent.eHeader, currEvent.eMsg, defReminder,
-        currEvent.eType) then
+      if ShowTaskDialog(FEvent.eHeader, FEvent.eMsg, defReminder, FEvent.eType)
+        then
       begin
-        currEvent.eReminder := currEvent.eTime;
-        currEvent.eTime := GetTimeOfLWDMonth(currTime);
+        FEvent.eReminder := FEvent.eTime;
+        FEvent.eTime := GetTimeOfLWDMonth(FTime);
       end
       else
       begin
-        currEvent.eReminder := IncSecond(currTime, defReminder);
+        FEvent.eReminder := IncSecond(FTime, defReminder);
       end;
     end;
     fmMain.UpdateList;
   end;
 end;
 
-// Каждый день месяца
+{ TEventThread.DoMonth
+
+  Каждый день месяца }
 procedure TEventThread.DoMonth;
 var
   defReminder: integer;
 begin
-  if (currEvent.eTime <= currTime) and not currEvent.eDone then
+  if (FEvent.eTime <= FTime) and not FEvent.eDone then
   begin
-    if (currEvent.eReminder > currEvent.eTime) and
-      (currEvent.eReminder <= currTime) then
+    if (FEvent.eReminder > FEvent.eTime) and (FEvent.eReminder <= FTime) then
     begin
-      if currEvent.eStartPrgm then
-        if FileExists(currEvent.ePrgmPath) then
-          ShellExecute(Handle, 'open', PChar(currEvent.ePrgmPath), nil, nil,
+      if FEvent.eStartPrgm then
+        if FileExists(FEvent.ePrgmPath) then
+          ShellExecute(Handle, 'open', PChar(FEvent.ePrgmPath), nil, nil,
             SW_SHOWNORMAL);
-      if ShowTaskDialog(currEvent.eHeader + fmMain.lsMain.GetCaption(37),
-        currEvent.eMsg, defReminder, currEvent.eType) then
+      if ShowTaskDialog(FEvent.eHeader + fmMain.lsMain.GetCaption(37),
+        FEvent.eMsg, defReminder, FEvent.eType) then
       begin
-        currEvent.eReminder := currEvent.eTime;
-        currEvent.eTime := GetTimeOfMonth(currEvent.eTime,
-          currEvent.eCircleMonthDays);
+        FEvent.eReminder := FEvent.eTime;
+        FEvent.eTime := GetTimeOfMonth(FEvent.eTime, FEvent.eCircleMonthDays);
       end
       else
       begin
-        currEvent.eDone := false;
-        currEvent.eReminder := IncSecond(currTime, defReminder);
+        FEvent.eDone := false;
+        FEvent.eReminder := IncSecond(FTime, defReminder);
       end;
     end
-    else if (currEvent.eReminder <= currEvent.eTime) then
+    else if (FEvent.eReminder <= FEvent.eTime) then
     begin
-      if currEvent.eStartPrgm then
-        if FileExists(currEvent.ePrgmPath) then
-          ShellExecute(Handle, 'open', PChar(currEvent.ePrgmPath), nil, nil,
+      if FEvent.eStartPrgm then
+        if FileExists(FEvent.ePrgmPath) then
+          ShellExecute(Handle, 'open', PChar(FEvent.ePrgmPath), nil, nil,
             SW_SHOWNORMAL);
-      if ShowTaskDialog(currEvent.eHeader, currEvent.eMsg, defReminder,
-        currEvent.eType) then
+      if ShowTaskDialog(FEvent.eHeader, FEvent.eMsg, defReminder, FEvent.eType)
+        then
       begin
-        currEvent.eReminder := currEvent.eTime;
-        currEvent.eTime := GetTimeOfMonth(currEvent.eTime,
-          currEvent.eCircleMonthDays);
+        FEvent.eReminder := FEvent.eTime;
+        FEvent.eTime := GetTimeOfMonth(FEvent.eTime, FEvent.eCircleMonthDays);
       end
       else
       begin
-        currEvent.eReminder := IncSecond(currTime, defReminder);
+        FEvent.eReminder := IncSecond(FTime, defReminder);
       end;
     end;
     fmMain.UpdateList;
   end;
 end;
 
-// Простое событие
+{ TEventThread.DoSingle
+
+  Простое событие }
 procedure TEventThread.DoSingle;
 var
   defReminder: integer;
 begin
-  if (currEvent.eTime <= currTime) and not currEvent.eDone then
+  if (FEvent.eTime <= FTime) and not FEvent.eDone then
   begin
-    if (currEvent.eReminder > currEvent.eTime) and
-      (currEvent.eReminder <= currTime) then
+    if (FEvent.eReminder > FEvent.eTime) and (FEvent.eReminder <= FTime) then
     begin
-      if currEvent.eStartPrgm then
-        if FileExists(currEvent.ePrgmPath) then
-          ShellExecute(Handle, 'open', PChar(currEvent.ePrgmPath), nil, nil,
+      if FEvent.eStartPrgm then
+        if FileExists(FEvent.ePrgmPath) then
+          ShellExecute(Handle, 'open', PChar(FEvent.ePrgmPath), nil, nil,
             SW_SHOWNORMAL);
-      if ShowTaskDialog(currEvent.eHeader + fmMain.lsMain.GetCaption(37),
-        currEvent.eMsg, defReminder, currEvent.eType) then
+      if ShowTaskDialog(FEvent.eHeader + fmMain.lsMain.GetCaption(37),
+        FEvent.eMsg, defReminder, FEvent.eType) then
       begin
-        currEvent.eDone := true;
-        currEvent.eReminder := currEvent.eTime;
+        FEvent.eDone := true;
+        FEvent.eReminder := FEvent.eTime;
       end
       else
       begin
-        currEvent.eDone := false;
-        currEvent.eReminder := IncSecond(currTime, defReminder);
+        FEvent.eDone := false;
+        FEvent.eReminder := IncSecond(FTime, defReminder);
       end;
     end
-    else if (currEvent.eReminder <= currEvent.eTime) then
+    else if (FEvent.eReminder <= FEvent.eTime) then
     begin
-      if currEvent.eStartPrgm then
-        if FileExists(currEvent.ePrgmPath) then
-          ShellExecute(Handle, 'open', PChar(currEvent.ePrgmPath), nil, nil,
+      if FEvent.eStartPrgm then
+        if FileExists(FEvent.ePrgmPath) then
+          ShellExecute(Handle, 'open', PChar(FEvent.ePrgmPath), nil, nil,
             SW_SHOWNORMAL);
-      if ShowTaskDialog(currEvent.eHeader, currEvent.eMsg, defReminder,
-        currEvent.eType) then
+      if ShowTaskDialog(FEvent.eHeader, FEvent.eMsg, defReminder, FEvent.eType)
+        then
       begin
-        currEvent.eDone := true;
-        currEvent.eReminder := currEvent.eTime;
+        FEvent.eDone := true;
+        FEvent.eReminder := FEvent.eTime;
       end
       else
       begin
-        currEvent.eDone := false;
-        currEvent.eReminder := IncSecond(currTime, defReminder);
+        FEvent.eDone := false;
+        FEvent.eReminder := IncSecond(FTime, defReminder);
       end;
     end;
     fmMain.UpdateList;
   end;
 end;
 
-// Каждый день недели
+{ TEventThread.DoWeek
+
+  Каждый день недели }
 procedure TEventThread.DoWeek;
 var
   defReminder: integer;
 begin
-  if (currEvent.eTime <= currTime) and not currEvent.eDone then
+  if (FEvent.eTime <= FTime) and not FEvent.eDone then
   begin
-    if (currEvent.eReminder > currEvent.eTime) and
-      (currEvent.eReminder <= currTime) then
+    if (FEvent.eReminder > FEvent.eTime) and (FEvent.eReminder <= FTime) then
     begin
-      if currEvent.eStartPrgm then
-        if FileExists(currEvent.ePrgmPath) then
-          ShellExecute(Handle, 'open', PChar(currEvent.ePrgmPath), nil, nil,
+      if FEvent.eStartPrgm then
+        if FileExists(FEvent.ePrgmPath) then
+          ShellExecute(Handle, 'open', PChar(FEvent.ePrgmPath), nil, nil,
             SW_SHOWNORMAL);
-      if ShowTaskDialog(currEvent.eHeader + fmMain.lsMain.GetCaption(37),
-        currEvent.eMsg, defReminder, currEvent.eType) then
+      if ShowTaskDialog(FEvent.eHeader + fmMain.lsMain.GetCaption(37),
+        FEvent.eMsg, defReminder, FEvent.eType) then
       begin
-        currEvent.eReminder := currEvent.eTime;
-        currEvent.eTime := GetTimeOfWeek
-          (currEvent.eTime, currEvent.eCircleDays);
+        FEvent.eReminder := FEvent.eTime;
+        FEvent.eTime := GetTimeOfWeek(FEvent.eTime, FEvent.eCircleDays);
       end
       else
       begin
-        currEvent.eDone := false;
-        currEvent.eReminder := IncSecond(currTime, defReminder);
+        FEvent.eDone := false;
+        FEvent.eReminder := IncSecond(FTime, defReminder);
       end;
     end
-    else if (currEvent.eReminder <= currEvent.eTime) then
+    else if (FEvent.eReminder <= FEvent.eTime) then
     begin
-      if currEvent.eStartPrgm then
-        if FileExists(currEvent.ePrgmPath) then
-          ShellExecute(Handle, 'open', PChar(currEvent.ePrgmPath), nil, nil,
+      if FEvent.eStartPrgm then
+        if FileExists(FEvent.ePrgmPath) then
+          ShellExecute(Handle, 'open', PChar(FEvent.ePrgmPath), nil, nil,
             SW_SHOWNORMAL);
-      if ShowTaskDialog(currEvent.eHeader, currEvent.eMsg, defReminder,
-        currEvent.eType) then
+      if ShowTaskDialog(FEvent.eHeader, FEvent.eMsg, defReminder, FEvent.eType)
+        then
       begin
-        currEvent.eReminder := currEvent.eTime;
-        currEvent.eTime := GetTimeOfWeek
-          (currEvent.eTime, currEvent.eCircleDays);
+        FEvent.eReminder := FEvent.eTime;
+        FEvent.eTime := GetTimeOfWeek(FEvent.eTime, FEvent.eCircleDays);
       end
       else
       begin
-        currEvent.eReminder := IncSecond(currTime, defReminder);
+        FEvent.eReminder := IncSecond(FTime, defReminder);
       end;
     end;
     fmMain.UpdateList;
   end;
 end;
 
-// Обработка событий
+{ TEventThread.Execute
+
+  Обработка событий }
 procedure TEventThread.Execute;
 var
   i: integer;
 begin
-  while not Terminated do
+  while not Terminated and FInitiated do
   begin
     try
-      currTime := now(); // текущее время
+      FTime := now(); // текущее время
       Synchronize(UpdateWindow);
       sleep(1000); // задержка в секунду
-      for i := 0 to fmMain.EventList.Count - 1 do
+      for i := 0 to TEventList(FList^).Count - 1 do
       begin
-        currEvent := fmMain.EventList.Items[i];
-        case currEvent.eCircleTimeType of
+        FEvent := TEventList(FList^).Items[i];
+        case FEvent.eCircleTimeType of
           сttSingle:
             begin // один раз
               Synchronize(DoSingle);
@@ -1725,10 +1716,33 @@ begin
   end;
 end;
 
+procedure TEventThread.InitList(aList: Pointer);
+begin
+  try
+    if aList <> nil then
+    begin
+      FList := aList;
+      FInitiated := true;
+    end
+    else
+    begin
+      if FList <> nil then
+        FInitiated := true
+      else
+        FInitiated := false;
+    end;
+  except
+    on E: Exception do
+      MessageBox(fmMain.Handle, PChar(fmMain.lsMain.GetCaption(42)
+            + #13#10 + fmMain.lsMain.GetCaption(3) + E.Message), PChar
+          (fmMain.lsMain.GetCaption(13, 2)), 48);
+  end;
+end;
+
 // Отображение текущего времени
 procedure TEventThread.UpdateWindow;
 begin
-  fmMain.stsBar.Panels[0].Text := FormatDateTime('dddddd - tt', currTime);
+  fmMain.stsBar.Panels[0].Text := FormatDateTime('dddddd - tt', FTime);
 end;
 
 { TEvent }
