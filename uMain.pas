@@ -1338,6 +1338,7 @@ begin
   miAutorun.Caption := lsMain.GetCaption(64);
   miLanguage.Caption := lsMain.GetCaption(64, 1);
   miRunInTray.Caption := lsMain.GetCaption(67);
+  miRestore.Caption:= lsMain.GetCaption(70);
   // Создание списка языков для выбора в трее
   miLanguage.Clear;
   for i := 0 to LangList.Count - 1 do

@@ -281,10 +281,10 @@ var
   i, DoW: integer;
 begin
   Result := eTime;
-  if (eTime >= now) and (DayOfTheWeek(now) = DayOfTheWeek(eTime)) then
-    Exit; // ≈сли выбранна€ дата больше текущей, то оставл€ем
-  DoW := DayOfTheWeek(date); // ”знаем текущий день недели во времени
-  preDate := IncWeek(date); // ”знаем дату с недельной разницей в плюс
+  //if (eTime >= now) and (DayOfTheWeek(now) = DayOfTheWeek(eTime)) then
+  //  Exit; // ≈сли выбранна€ дата больше текущей, то оставл€ем
+  DoW := DayOfTheWeek(eTime); // ”знаем текущий день недели во времени
+  preDate := IncWeek(eTime); // ”знаем дату с недельной разницей в плюс
   for i := 1 to 7 do
   begin
     arrDays[i] := 0; // начнем с нул€
