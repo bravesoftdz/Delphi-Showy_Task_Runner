@@ -76,10 +76,10 @@ type
     procedure UpdateLang;
   end;
 
-function ShowEventCreationDialog(const gId: integer; var eList: TEventList;
-  var eGroups: TGroupList): boolean;
-function ShowEventEditingDialog(var eEvent: TEvent; var eList: TEventList;
-  var eGroups: TGroupList): boolean;
+function ShowEventCreationDialog(const gId: integer; eList: TEventList;
+  eGroups: TGroupList; eThread: TEventThread): boolean;
+function ShowEventEditingDialog(eEvent: TEvent; eList: TEventList;
+  eGroups: TGroupList; eThread: TEventThread): boolean;
 
 implementation
 
@@ -88,8 +88,8 @@ uses
 {$R *.dfm}
 
 // Создание задачи
-function ShowEventCreationDialog(const gId: integer; var eList: TEventList;
-  var eGroups: TGroupList): boolean;
+function ShowEventCreationDialog(const gId: integer; eList: TEventList;
+  eGroups: TGroupList; eThread: TEventThread): boolean;
 var
   i: integer;
   nextTime: TDateTime;
@@ -114,10 +114,12 @@ begin
       if ShowModal = mrOk then
       begin
         nextTime := GetEventTime(TCircleTimeType(cbxCircleTimeType.ItemIndex));
+        eThread.Suspend;
         eList.AddEvent(eGroups, edName.Text, qmTask.Text, nextTime,
           GetCircleDays, GetCircleMDays, TEventType(cbxType.ItemIndex),
           TCircleTimeType(cbxCircleTimeType.ItemIndex), gId, boolean
             (cbxDone.ItemIndex), chbStartPrgm.Checked, edPrgmPath.Text);
+        eThread.Resume;
         Result := true;
       end;
     finally
@@ -126,8 +128,8 @@ begin
 end;
 
 // Редактирование задачи
-function ShowEventEditingDialog(var eEvent: TEvent; var eList: TEventList;
-  var eGroups: TGroupList): boolean;
+function ShowEventEditingDialog(eEvent: TEvent; eList: TEventList;
+  eGroups: TGroupList; eThread: TEventThread): boolean;
 var
   i: integer;
 begin
@@ -167,6 +169,7 @@ begin
       end;
       if ShowModal = mrOk then
       begin
+        eThread.Suspend;
         eEvent.eHeader := edName.Text;
         eEvent.eMsg := qmTask.Text;
         eEvent.eGroup := GetGroupIdByIndex(cbxGroup.ItemIndex);
@@ -187,6 +190,7 @@ begin
           eEvent.eStartPrgm := chbStartPrgm.Checked;
           eEvent.ePrgmPath := '';
         end;
+        eThread.Resume;
         Result := true;
       end;
     finally

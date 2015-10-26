@@ -42,10 +42,6 @@ object fmMain: TfmMain
       Font.Style = []
       ParentDoubleBuffered = False
       ParentFont = False
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
       object stList: TSplitter
         Left = 0
         Top = 0
@@ -111,7 +107,7 @@ object fmMain: TfmMain
         object lblHeader: TLabel
           Left = 0
           Top = 0
-          Width = 4
+          Width = 519
           Height = 16
           Align = alTop
           Alignment = taCenter
@@ -121,6 +117,7 @@ object fmMain: TfmMain
           Font.Name = 'Verdana'
           Font.Style = [fsBold]
           ParentFont = False
+          ExplicitWidth = 4
         end
         object lblCircleDays: TLabel
           Left = 16
@@ -232,10 +229,6 @@ object fmMain: TfmMain
     object tsNext: TTabSheet
       Caption = #1041#1083#1080#1078#1072#1081#1096#1080#1077
       ImageIndex = 1
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
       object lbNext: TListBox
         Left = 0
         Top = 0
