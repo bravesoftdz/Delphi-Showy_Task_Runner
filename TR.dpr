@@ -12,7 +12,7 @@ uses
 {$R *.res}
 
 begin
-{$IFDEF DEBUG}
+{$IFDEF Debug}
   ReportMemoryLeaksOnShutdown := true; // Проверка на утечки памяти
 {$ENDIF}
   Application.Initialize;

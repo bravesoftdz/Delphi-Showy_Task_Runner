@@ -1,7 +1,7 @@
 object fmMain: TfmMain
   Left = 0
   Top = 0
-  Caption = 'Showy Task Runner v.0.1 alfa'
+  Caption = 'Showy Task Runner v.0.2 alfa'
   ClientHeight = 713
   ClientWidth = 529
   Color = clBtnFace
@@ -296,6 +296,7 @@ object fmMain: TfmMain
     end
   end
   object tiTray: TTrayIcon
+    Hint = 'Showy Task Runner'
     Icon.Data = {
       000001000F000000100001000400CA4F0000F600000030301000010004006806
       0000C05000002020100001000400E8020000285700001818100001000400E801
