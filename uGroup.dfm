@@ -2,7 +2,7 @@ object fmGroup: TfmGroup
   Left = 0
   Top = 0
   BorderStyle = bsToolWindow
-  ClientHeight = 145
+  ClientHeight = 140
   ClientWidth = 242
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -19,10 +19,11 @@ object fmGroup: TfmGroup
     Left = 0
     Top = 0
     Width = 242
-    Height = 145
+    Height = 140
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 0
+    ExplicitHeight = 145
     object lblName: TLabel
       Left = 8
       Top = 5
@@ -46,11 +47,12 @@ object fmGroup: TfmGroup
     end
     object pnlControl: TPanel
       Left = 0
-      Top = 106
+      Top = 101
       Width = 242
       Height = 39
       Align = alBottom
       TabOrder = 0
+      ExplicitTop = 106
       object btnOk: TBitBtn
         Left = 8
         Top = 8

@@ -427,7 +427,7 @@ function TfmMain.GetNextItemDate(const aValue: string): TDateTime;
 var
   s: string;
 begin
-  s := copy(aValue, 1, pos('-', aValue));
+  s := copy(aValue, 1, pos('-', aValue) - 2);
   Result := StrToDateTime(s);
 end;
 
@@ -502,6 +502,7 @@ begin
   begin
     lbNext.Hint := GetTextDateDiff
       (GetNextItemDate(lbNext.Items.Strings[lbNext.ItemIndex]) - now);
+    ods(lbNext.Hint);
     lbNext.ShowHint := true;
   end
   else

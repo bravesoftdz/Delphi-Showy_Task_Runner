@@ -85,9 +85,9 @@
 						<VersionInfo Name="IncludeVerInfo">True</VersionInfo>
 						<VersionInfo Name="AutoIncBuild">True</VersionInfo>
 						<VersionInfo Name="MajorVer">0</VersionInfo>
-						<VersionInfo Name="MinorVer">1</VersionInfo>
+						<VersionInfo Name="MinorVer">2</VersionInfo>
 						<VersionInfo Name="Release">0</VersionInfo>
-						<VersionInfo Name="Build">858</VersionInfo>
+						<VersionInfo Name="Build">860</VersionInfo>
 						<VersionInfo Name="Debug">False</VersionInfo>
 						<VersionInfo Name="PreRelease">True</VersionInfo>
 						<VersionInfo Name="Special">False</VersionInfo>
@@ -99,13 +99,13 @@
 					<VersionInfoKeys>
 						<VersionInfoKeys Name="CompanyName">SCRIBE-SOFT</VersionInfoKeys>
 						<VersionInfoKeys Name="FileDescription"/>
-						<VersionInfoKeys Name="FileVersion">0.1.0.858</VersionInfoKeys>
+						<VersionInfoKeys Name="FileVersion">0.2.0.860</VersionInfoKeys>
 						<VersionInfoKeys Name="InternalName"/>
 						<VersionInfoKeys Name="LegalCopyright"/>
 						<VersionInfoKeys Name="LegalTrademarks"/>
 						<VersionInfoKeys Name="OriginalFilename"/>
 						<VersionInfoKeys Name="ProductName">Showy Task Runner</VersionInfoKeys>
-						<VersionInfoKeys Name="ProductVersion">0.1.0.0</VersionInfoKeys>
+						<VersionInfoKeys Name="ProductVersion">0.2.0.0</VersionInfoKeys>
 						<VersionInfoKeys Name="Comments"/>
 					</VersionInfoKeys>
 					<Excluded_Packages>

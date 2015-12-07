@@ -2,7 +2,7 @@ object fmMain: TfmMain
   Left = 0
   Top = 0
   Caption = 'Showy Task Runner v.0.2 alfa'
-  ClientHeight = 713
+  ClientHeight = 714
   ClientWidth = 529
   Color = clBtnFace
   Font.Charset = RUSSIAN_CHARSET
@@ -23,8 +23,8 @@ object fmMain: TfmMain
     Left = 0
     Top = 0
     Width = 529
-    Height = 713
-    ActivePage = tsMain
+    Height = 714
+    ActivePage = tsNext
     Align = alClient
     DoubleBuffered = False
     MultiLine = True
@@ -32,6 +32,7 @@ object fmMain: TfmMain
     ParentShowHint = False
     ShowHint = False
     TabOrder = 0
+    ExplicitHeight = 713
     object tsMain: TTabSheet
       Caption = #1054#1089#1085#1086#1074#1085#1099#1077
       DoubleBuffered = False
@@ -42,11 +43,12 @@ object fmMain: TfmMain
       Font.Style = []
       ParentDoubleBuffered = False
       ParentFont = False
+      ExplicitHeight = 685
       object stList: TSplitter
         Left = 0
         Top = 0
         Width = 2
-        Height = 666
+        Height = 667
         Color = clGray
         ParentColor = False
         ExplicitLeft = 177
@@ -56,13 +58,14 @@ object fmMain: TfmMain
         Left = 2
         Top = 0
         Width = 519
-        Height = 666
+        Height = 667
         Align = alClient
         BevelEdges = []
         BevelOuter = bvNone
         Color = clWhite
         ParentBackground = False
         TabOrder = 0
+        ExplicitHeight = 666
         object lblTime: TLabel
           Left = 16
           Top = 16
@@ -93,7 +96,7 @@ object fmMain: TfmMain
         end
         object ostTask: TSplitter
           Left = 0
-          Top = 430
+          Top = 431
           Width = 519
           Height = 2
           Cursor = crVSplit
@@ -149,7 +152,7 @@ object fmMain: TfmMain
         end
         object pnlTaskInfo: TPanel
           Left = 0
-          Top = 432
+          Top = 433
           Width = 519
           Height = 234
           Align = alBottom
@@ -157,6 +160,7 @@ object fmMain: TfmMain
           Color = clWhite
           ParentBackground = False
           TabOrder = 0
+          ExplicitTop = 432
           object pnlButtons: TPanel
             Left = 0
             Top = 199
@@ -220,20 +224,22 @@ object fmMain: TfmMain
       end
       object stsBar: TStatusBar
         Left = 0
-        Top = 666
+        Top = 667
         Width = 521
         Height = 19
         Panels = <>
+        ExplicitTop = 666
       end
     end
     object tsNext: TTabSheet
       Caption = #1041#1083#1080#1078#1072#1081#1096#1080#1077
       ImageIndex = 1
+      ExplicitHeight = 685
       object lbNext: TListBox
         Left = 0
         Top = 0
         Width = 521
-        Height = 685
+        Height = 686
         Style = lbOwnerDrawFixed
         AutoComplete = False
         Align = alClient
@@ -244,9 +250,12 @@ object fmMain: TfmMain
         Font.Name = 'Verdana'
         Font.Style = [fsBold]
         ParentFont = False
+        ParentShowHint = False
+        ShowHint = False
         TabOrder = 0
         OnClick = lbNextClick
         OnDrawItem = lbNextDrawItem
+        ExplicitHeight = 685
       end
     end
   end
